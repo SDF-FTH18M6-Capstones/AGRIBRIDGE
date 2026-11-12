@@ -1,20 +1,20 @@
 
+import { Link, Outlet } from "react-router-dom";
+
 function App() {
   return (
-    <div className="app">
-      <header>
-        <h1>Welcome to AgriBridge</h1>
-        <p>
-          Connecting farmers directly with buyers.
-          Fresh produce, fair prices, no unnecessary middlemen.
-        </p>
-      </header>
+    <div className="min-h-screen bg-gray-50">
+      <nav className="bg-green-700 p-4 text-white">
+        <div className="mx-auto flex max-w-6xl gap-6">
+          <Link to="/">AgriBridge</Link>
+          <Link to="/marketplace">Marketplace</Link>
+          <Link to="/login">Login</Link>
+          <Link to="/register">Register</Link>
+        </div>
+      </nav>
 
-      <main>
-        <h2>Your Farm-to-Market Connection</h2>
-        <p>
-          Discover fresh agricultural products directly from farmers.
-        </p>
+      <main className="mx-auto max-w-6xl p-6">
+        <Outlet />
       </main>
     </div>
   );
