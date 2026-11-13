@@ -14,6 +14,9 @@ def create_app(test_config=None):
     if test_config:
         app.config.update(test_config)
 
+    if app.config.get("TESTING") and not app.config.get("SQLALCHEMY_DATABASE_URI"):
+        app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
+
     CORS(
         app,
         resources={r"/api/*": {
