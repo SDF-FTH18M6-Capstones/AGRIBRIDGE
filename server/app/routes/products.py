@@ -5,8 +5,7 @@ from app.schemas.product_schema import product_schema
 
 products_bp = Blueprint("products", __name__)
 
-# Temporary mock data.
-# Replace with SQLAlchemy queries once models are available.
+
 products = {
     1: {
         "id": 1,
