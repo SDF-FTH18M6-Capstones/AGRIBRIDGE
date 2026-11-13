@@ -22,10 +22,12 @@ def seed_database(app):
         Category.query.delete()
         User.query.delete()
         db.session.commit()
+        
         cat_cereals = Category(category_name="Cereals & Grains", description="Maize, wheat, and rice")
         cat_horticulture = Category(category_name="Horticulture", description="Fresh fruits and vegetables")
         db.session.add_all([cat_cereals, cat_horticulture])
         db.session.commit()
+        
         user_farmer = User(
             full_name="John Kiprop",
             email="farmer.john@agribridge.com",
@@ -42,6 +44,7 @@ def seed_database(app):
         )
         db.session.add_all([user_farmer, user_buyer])
         db.session.commit()
+        
         farmer_profile = FarmerProfile(
             user_id=user_farmer.user_id,
             farm_name="Rift Valley Green Farm",
@@ -56,6 +59,7 @@ def seed_database(app):
         )
         db.session.add_all([farmer_profile, buyer_profile])
         db.session.commit()
+        
         product = Product(
             farmer_id=farmer_profile.farmer_id,
             category_id=cat_cereals.category_id,
@@ -70,6 +74,7 @@ def seed_database(app):
         )
         db.session.add(product)
         db.session.commit()
+        
         image = ProductImage(
             product_id=product.product_id,
             image_url="https://images.example.com/maize.jpg"
