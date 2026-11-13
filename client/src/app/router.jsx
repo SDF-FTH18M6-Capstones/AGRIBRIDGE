@@ -1,7 +1,22 @@
+
 import { createBrowserRouter } from "react-router-dom";
 import App from "../App.jsx";
 import ProductManagement from "../features/marketplace/ProductManagement.jsx";
-import { Home, Marketplace, Login, Register } from "./PlaceholderPages.jsx";
+import DashboardLayout from "../components/layout/DashboardLayout.jsx";
+
+import {
+  Home,
+  Marketplace,
+  Login,
+  Register,
+  Dashboard,
+  MyProduce,
+  BuyerRequests,
+  Orders,
+  Payments,
+  Settings,
+} from "./PlaceholderPages.jsx";
+
 
 const router = createBrowserRouter([
   {
@@ -13,6 +28,19 @@ const router = createBrowserRouter([
       { path: "login", element: <Login /> },
       { path: "register", element: <Register /> },
       { path: "my-products",element: <ProductManagement />,},
+    ],
+  },
+  {
+    path: "/dashboard",
+    element: <DashboardLayout />,
+    children: [
+      { index: true, element: <Dashboard /> },
+      { path: "marketplace", element: <Marketplace /> },
+      { path: "produce", element: <MyProduce /> },
+      { path: "buyer-requests", element: <BuyerRequests /> },
+      { path: "orders", element: <Orders /> },
+      { path: "payments", element: <Payments /> },
+      { path: "settings", element: <Settings /> },
     ],
   },
 ]);
