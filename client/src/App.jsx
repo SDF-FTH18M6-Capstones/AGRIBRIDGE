@@ -8,6 +8,7 @@ function App() {
         <div className="mx-auto flex max-w-6xl gap-6">
           <Link to="/">AgriBridge</Link>
           <Link to="/marketplace">Marketplace</Link>
+          <Link to="/my-products">My Products</Link>
           <Link to="/login">Login</Link>
           <Link to="/register">Register</Link>
         </div>
