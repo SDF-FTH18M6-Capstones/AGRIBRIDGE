@@ -4,6 +4,7 @@ const navLinks = [
   { to: "/", label: "Home", end: true },
   { to: "/marketplace", label: "Marketplace" },
   { to: "/about", label: "About Us" },
+  { to: "/my-products", label: "My Products" },
   { to: "/login", label: "Login" },
   { to: "/register", label: "Register" },
 ];

@@ -1,5 +1,6 @@
 import { createBrowserRouter } from "react-router-dom";
 import App from "../App.jsx";
+import ProductManagement from "../features/marketplace/ProductManagement.jsx";
 import DashboardLayout from "../components/layout/DashboardLayout.jsx";
 import AboutPage from "./AboutPage.jsx";
 import ProfilePage from "./ProfilePage.jsx";
@@ -18,6 +19,7 @@ import {
   Settings,
 } from "./PlaceholderPages.jsx";
 
+
 const router = createBrowserRouter([
   {
     path: "/",
@@ -28,6 +30,7 @@ const router = createBrowserRouter([
       { path: "about", element: <AboutPage /> },
       { path: "login", element: <Login /> },
       { path: "register", element: <Register /> },
+      { path: "my-products",element: <ProductManagement />,},
     ],
   },
   {
