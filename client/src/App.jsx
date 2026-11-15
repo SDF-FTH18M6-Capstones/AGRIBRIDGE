@@ -14,19 +14,7 @@ function navLinkClass({ isActive }) {
 
 function App() {
   return (
-<<<<<<< Updated upstream
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-green-700 p-4 text-white">
-        <div className="mx-auto flex max-w-6xl gap-6">
-          <Link to="/">AgriBridge</Link>
-          <Link to="/marketplace">Marketplace</Link>
-          <Link to="/login">Login</Link>
-          <Link to="/register">Register</Link>
-        </div>
-      </nav>
-=======
     <div className="flex min-h-screen flex-col bg-gray-50">
-      
       <header className="bg-green-700 text-white">
         <nav
           className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-8 gap-y-2 p-4"
@@ -35,7 +23,6 @@ function App() {
           <Link to="/" className="text-lg font-bold">
             AgriBridge
           </Link>
->>>>>>> Stashed changes
 
           <ul className="flex flex-wrap gap-x-6 gap-y-2 text-sm md:text-base">
             {navLinks.map((link) => (
@@ -49,12 +36,10 @@ function App() {
         </nav>
       </header>
 
-    
       <main className="mx-auto w-full max-w-6xl flex-1 p-6">
         <Outlet />
       </main>
 
-      
       <footer className="border-t border-gray-200 bg-white">
         <div className="mx-auto flex max-w-6xl flex-col gap-3 p-6 text-sm text-gray-600 md:flex-row md:items-center md:justify-between">
           <p>Contact: hello@agribridge.example | +254 700 000 000</p>

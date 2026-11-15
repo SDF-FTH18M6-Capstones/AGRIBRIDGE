@@ -28,10 +28,6 @@ const router = createBrowserRouter([
       { path: "about", element: <AboutPage /> },
       { path: "login", element: <Login /> },
       { path: "register", element: <Register /> },
-<<<<<<< Updated upstream
-=======
-      { path: "my-products", element: <ProductManagement /> },
->>>>>>> Stashed changes
     ],
   },
   {
