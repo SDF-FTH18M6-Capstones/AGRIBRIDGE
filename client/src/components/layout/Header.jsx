@@ -68,7 +68,7 @@ function Header({ onMenuClick }) {
 
           <div className="hidden sm:block">
             <p className="text-sm font-semibold text-gray-800">
-              AgriBridge User
+              Ryan
             </p>
             <p className="text-xs text-gray-500">Account</p>
           </div>

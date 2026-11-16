@@ -3,9 +3,9 @@ import { createBrowserRouter } from "react-router-dom";
 import App from "../App.jsx";
 import ProductManagement from "../features/marketplace/ProductManagement.jsx";
 import DashboardLayout from "../components/layout/DashboardLayout.jsx";
+import HomePage from "../features/marketplace/HomePage";
 
 import {
-  Home,
   Marketplace,
   Login,
   Register,
