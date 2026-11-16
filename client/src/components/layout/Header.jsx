@@ -3,26 +3,33 @@ import { Link } from "react-router-dom";
 const workspaces = {
   farmer: {
     title: "Farmer Workspace",
+    home: "/dashboard",
+    profile: "/dashboard/profile",
     links: [],
     accountLabel: "My Account",
   },
   buyer: {
     title: "Buyer Workspace",
+    home: "/buyer",
+    profile: "/buyer/profile",
     links: [{ label: "Marketplace", to: "/marketplace" }, { label: "Cart" }],
     accountLabel: "Account",
   },
 };
 
-function Header({ onMenuClick, variant = "farmer" }) {
+function Header({ onMenuClick, isMenuOpen = false, variant = "farmer" }) {
   const workspace = workspaces[variant] ?? workspaces.farmer;
 
   return (
     <header className="flex h-16 items-center gap-4 border-b border-gray-200 bg-white px-4 md:px-8">
       <button
+        id="sidebar-toggle"
         type="button"
         onClick={onMenuClick}
+        aria-expanded={isMenuOpen}
+        aria-controls="app-sidebar"
         className="rounded-lg p-2 text-gray-600 hover:bg-gray-100 lg:hidden"
-        aria-label="Open navigation menu"
+        aria-label="Navigation menu"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -31,6 +38,7 @@ function Header({ onMenuClick, variant = "farmer" }) {
           strokeWidth="1.5"
           stroke="currentColor"
           className="h-6 w-6"
+          aria-hidden="true"
         >
           <path
             strokeLinecap="round"
@@ -40,11 +48,11 @@ function Header({ onMenuClick, variant = "farmer" }) {
         </svg>
       </button>
 
-      <Link to="/dashboard" className="text-xl font-bold text-green-800">
+      <Link to={workspace.home} className="text-xl font-bold text-green-800">
         AgriBridge
       </Link>
 
-      <p className="hidden text-sm font-semibold text-gray-700 sm:block md:ml-8">
+      <p className="hidden text-sm font-semibold text-gray-700 sm:block md:ml-8 md:mr-4">
         {workspace.title}
       </p>
 
@@ -61,6 +69,7 @@ function Header({ onMenuClick, variant = "farmer" }) {
             <button
               key={link.label}
               type="button"
+              title="Coming soon"
               className="hover:text-green-700"
             >
               {link.label}
@@ -69,8 +78,8 @@ function Header({ onMenuClick, variant = "farmer" }) {
         )}
       </nav>
 
-      <button
-        type="button"
+      <Link
+        to={workspace.profile}
         className="ml-auto flex items-center gap-3 rounded-lg p-1 hover:bg-gray-100"
         aria-label={workspace.accountLabel}
       >
@@ -80,7 +89,7 @@ function Header({ onMenuClick, variant = "farmer" }) {
         <span className="hidden text-sm font-medium text-gray-700 sm:block">
           {workspace.accountLabel}
         </span>
-      </button>
+      </Link>
     </header>
   );
 }

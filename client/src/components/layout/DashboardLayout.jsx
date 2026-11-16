@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import Header from "./Header.jsx";
 import Sidebar from "./Sidebar.jsx";
 
 function DashboardLayout({ variant = "farmer" }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const wasOpenRef = useRef(false);
   const { pathname } = useLocation();
 
   function handleMenuClick() {
@@ -32,9 +33,20 @@ function DashboardLayout({ variant = "farmer" }) {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isSidebarOpen]);
 
+  useEffect(() => {
+    if (wasOpenRef.current && !isSidebarOpen) {
+      document.getElementById("sidebar-toggle")?.focus();
+    }
+    wasOpenRef.current = isSidebarOpen;
+  }, [isSidebarOpen]);
+
   return (
     <div className="flex min-h-screen flex-col bg-gray-50">
-      <Header onMenuClick={handleMenuClick} variant={variant} />
+      <Header
+        onMenuClick={handleMenuClick}
+        isMenuOpen={isSidebarOpen}
+        variant={variant}
+      />
 
       <div className="flex flex-1">
         {isSidebarOpen && (
