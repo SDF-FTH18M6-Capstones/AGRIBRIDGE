@@ -1,3 +1,4 @@
+
 import { Link } from "react-router-dom";
 
 const workspaces = {
@@ -12,16 +13,24 @@ const workspaces = {
     title: "Buyer Workspace",
     home: "/buyer",
     profile: "/buyer/profile",
-    links: [{ label: "Marketplace", to: "/marketplace" }, { label: "Cart" }],
+    links: [
+      { label: "Marketplace", to: "/marketplace" },
+      { label: "Cart" },
+    ],
     accountLabel: "Account",
   },
 };
 
-function Header({ onMenuClick, isMenuOpen = false, variant = "farmer" }) {
+function Header({
+  onMenuClick,
+  isMenuOpen = false,
+  variant = "farmer",
+}) {
   const workspace = workspaces[variant] ?? workspaces.farmer;
 
   return (
     <header className="flex h-16 items-center gap-4 border-b border-gray-200 bg-white px-4 md:px-8">
+      {/* Mobile menu button */}
       <button
         id="sidebar-toggle"
         type="button"
@@ -48,29 +57,40 @@ function Header({ onMenuClick, isMenuOpen = false, variant = "farmer" }) {
         </svg>
       </button>
 
-      <Link to={workspace.home} className="text-xl font-bold text-green-800">
+      {/* Logo */}
+      <Link
+        to={workspace.home}
+        className="text-xl font-bold text-green-800"
+      >
         AgriBridge
       </Link>
 
+      {/* Workspace title */}
       <p className="hidden text-sm font-semibold text-gray-700 sm:block md:ml-8 md:mr-4">
         {workspace.title}
       </p>
 
+      {/* Workspace navigation */}
       <nav
         className="hidden items-center gap-6 text-sm font-medium text-gray-600 md:flex"
         aria-label="Workspace links"
       >
         {workspace.links.map((link) =>
           link.to ? (
-            <Link key={link.label} to={link.to} className="hover:text-green-700">
+            <Link
+              key={link.label}
+              to={link.to}
+              className="hover:text-green-700"
+            >
               {link.label}
             </Link>
           ) : (
             <button
               key={link.label}
               type="button"
+              disabled
               title="Coming soon"
-              className="hover:text-green-700"
+              className="cursor-not-allowed text-gray-400"
             >
               {link.label}
             </button>
@@ -78,6 +98,7 @@ function Header({ onMenuClick, isMenuOpen = false, variant = "farmer" }) {
         )}
       </nav>
 
+      {/* Account link */}
       <Link
         to={workspace.profile}
         className="ml-auto flex items-center gap-3 rounded-lg p-1 hover:bg-gray-100"
@@ -86,6 +107,7 @@ function Header({ onMenuClick, isMenuOpen = false, variant = "farmer" }) {
         <span className="flex h-9 w-9 items-center justify-center rounded-full bg-green-100 font-semibold text-green-800">
           A
         </span>
+
         <span className="hidden text-sm font-medium text-gray-700 sm:block">
           {workspace.accountLabel}
         </span>
