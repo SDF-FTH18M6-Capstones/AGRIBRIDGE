@@ -1,11 +1,12 @@
-
-import { useState } from "react";
-import { Outlet } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Outlet, useLocation } from "react-router-dom";
 import Header from "./Header.jsx";
 import Sidebar from "./Sidebar.jsx";
 
-function DashboardLayout() {
+function DashboardLayout({ variant = "farmer" }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const wasOpenRef = useRef(false);
+  const { pathname } = useLocation();
 
   function handleMenuClick() {
     setIsSidebarOpen(true);
@@ -15,32 +16,56 @@ function DashboardLayout() {
     setIsSidebarOpen(false);
   }
 
+  useEffect(() => {
+    setIsSidebarOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!isSidebarOpen) return;
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") {
+        setIsSidebarOpen(false);
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isSidebarOpen]);
+
+  useEffect(() => {
+    if (wasOpenRef.current && !isSidebarOpen) {
+      document.getElementById("sidebar-toggle")?.focus();
+    }
+    wasOpenRef.current = isSidebarOpen;
+  }, [isSidebarOpen]);
+
   return (
-    <div className="flex min-h-screen bg-gray-50">
-
-      {/* Mobile overlay */}
-      {isSidebarOpen && (
-        <div
-          onClick={handleCloseSidebar}
-          className="fixed inset-0 z-30 bg-black/50 lg:hidden"
-        />
-      )}
-
-      {/* Sidebar */}
-      <Sidebar
-        isOpen={isSidebarOpen}
-        onClose={handleCloseSidebar}
+    <div className="flex min-h-screen flex-col bg-gray-50">
+      <Header
+        onMenuClick={handleMenuClick}
+        isMenuOpen={isSidebarOpen}
+        variant={variant}
       />
 
-      {/* Main content */}
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex flex-1">
+        {isSidebarOpen && (
+          <div
+            onClick={handleCloseSidebar}
+            className="fixed inset-0 z-30 bg-black/50 lg:hidden"
+            aria-hidden="true"
+          />
+        )}
 
-        <Header onMenuClick={handleMenuClick} />
+        <Sidebar
+          isOpen={isSidebarOpen}
+          onClose={handleCloseSidebar}
+          variant={variant}
+        />
 
-        <main className="flex-1 overflow-y-auto p-4 md:p-8">
+        <main className="min-w-0 flex-1 p-4 md:p-8">
           <Outlet />
         </main>
-
       </div>
     </div>
   );
