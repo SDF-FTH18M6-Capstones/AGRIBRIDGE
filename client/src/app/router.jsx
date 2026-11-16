@@ -7,7 +7,7 @@ import DashboardLayout from "../components/layout/DashboardLayout.jsx";
 import ProductManagement from "../features/marketplace/ProductManagement.jsx";
 import HomePage from "../features/marketplace/HomePage.jsx";
 import AuthPage from "../features/auth/AuthPage.jsx";
-
+import CheckoutPage from "../features/checkout/CheckoutPage.jsx";
 import AboutPage from "./AboutPage.jsx";
 import ProfilePage from "./ProfilePage.jsx";
 import TrackOrdersPage from "./TrackOrdersPage.jsx";
@@ -34,6 +34,7 @@ const router = createBrowserRouter([
       { path: "login", element: <AuthPage /> },
       { path: "register", element: <AuthPage /> },
       { path: "my-products", element: <ProductManagement /> },
+      { path: "checkout", element: <CheckoutPage /> },
     ],
   },
 
