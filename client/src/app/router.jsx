@@ -6,6 +6,8 @@ import DashboardLayout from "../components/layout/DashboardLayout.jsx";
 
 import ProductManagement from "../features/marketplace/ProductManagement.jsx";
 import HomePage from "../features/marketplace/HomePage.jsx";
+import MarketplacePage from "../features/marketplace/MarketplacePage.jsx";
+import ProductDetailsPage from "../features/marketplace/ProductDetailsPage.jsx";
 import AuthPage from "../features/auth/AuthPage.jsx";
 
 import AboutPage from "./AboutPage.jsx";
@@ -29,7 +31,8 @@ const router = createBrowserRouter([
     element: <App />,
     children: [
       { index: true, element: <HomePage /> },
-      { path: "marketplace", element: <Marketplace /> },
+      { path: "marketplace", element: <MarketplacePage /> },
+      { path: "marketplace/:id", element: <ProductDetailsPage /> },
       { path: "about", element: <AboutPage /> },
       { path: "login", element: <AuthPage /> },
       { path: "register", element: <AuthPage /> },
@@ -68,3 +71,5 @@ const router = createBrowserRouter([
 ]);
 
 export default router;
+
+
