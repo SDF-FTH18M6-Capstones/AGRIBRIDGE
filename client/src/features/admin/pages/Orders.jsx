@@ -3,9 +3,31 @@ import { useMemo, useState } from "react";
 import AdminSidebar from "../components/AdminSidebar.jsx";
 import AdminHeader from "../components/AdminHeader.jsx";
 
+// Temporary demonstration data.
+// Replace this with orders from the backend when the API is ready.
+const initialOrders = [
+  {
+    id: "AB-001",
+    buyer: "Sample buyer",
+    farmer: "Sample farmer",
+    total: "KES 2,500",
+    status: "Accepted",
+    date: "2026-11-17",
+    county: "Nairobi",
+  },
+  {
+    id: "AB-002",
+    buyer: "Demo hotel",
+    farmer: "Demo farmer",
+    total: "KES 4,000",
+    status: "Pending",
+    date: "2026-11-16",
+    county: "Kiambu",
+  },
+];
+
 function Orders() {
-  // Orders will be populated from the backend when the API is connected.
-  const [orders] = useState([]);
+  const [orders] = useState(initialOrders);
   const [search, setSearch] = useState("");
   const [selectedOrder, setSelectedOrder] = useState(null);
 
@@ -47,31 +69,27 @@ function Orders() {
               All orders
             </h2>
 
+            {/* Search orders */}
             <input
               type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Filter: status, date, county"
-              aria-label="Filter orders by status, date or county"
+              aria-label="Filter orders by status, date, county, buyer or farmer"
               className="mb-4 w-full rounded-md border border-gray-400 bg-white px-3 py-2.5 text-sm text-gray-700 outline-none focus:border-green-700 focus:ring-1 focus:ring-green-700"
             />
 
+            {/* Orders table */}
             <div className="overflow-x-auto">
               <table className="w-full min-w-[650px] text-left text-sm">
                 <thead>
                   <tr className="border-b border-gray-300 text-gray-800">
-                    {[
-                      "Order",
-                      "Buyer",
-                      "Farmer",
-                      "Total",
-                      "Status",
-                      "Action",
-                    ].map((heading) => (
-                      <th key={heading} className="px-2 py-3 font-medium">
-                        {heading}
-                      </th>
-                    ))}
+                    <th className="px-2 py-3 font-medium">Order</th>
+                    <th className="px-2 py-3 font-medium">Buyer</th>
+                    <th className="px-2 py-3 font-medium">Farmer</th>
+                    <th className="px-2 py-3 font-medium">Total</th>
+                    <th className="px-2 py-3 font-medium">Status</th>
+                    <th className="px-2 py-3 font-medium">Action</th>
                   </tr>
                 </thead>
 
@@ -86,7 +104,17 @@ function Orders() {
                         <td className="px-2 py-3">{order.buyer}</td>
                         <td className="px-2 py-3">{order.farmer}</td>
                         <td className="px-2 py-3">{order.total}</td>
-                        <td className="px-2 py-3">{order.status}</td>
+                        <td className="px-2 py-3">
+                          <span
+                            className={`rounded-full px-2 py-1 text-xs ${
+                              order.status === "Accepted"
+                                ? "bg-green-100 text-green-800"
+                                : "bg-yellow-100 text-yellow-800"
+                            }`}
+                          >
+                            {order.status}
+                          </span>
+                        </td>
                         <td className="px-2 py-3">
                           <button
                             type="button"
@@ -104,7 +132,7 @@ function Orders() {
                         colSpan="6"
                         className="px-3 py-8 text-center text-gray-500"
                       >
-                        No orders available.
+                        No orders found. Try a different search.
                       </td>
                     </tr>
                   )}
@@ -113,6 +141,7 @@ function Orders() {
             </div>
           </section>
 
+          {/* Order details */}
           {selectedOrder && (
             <div
               className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"

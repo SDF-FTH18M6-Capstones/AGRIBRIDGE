@@ -1,30 +1,10 @@
 
 import { createBrowserRouter } from "react-router-dom";
-
 import App from "../App.jsx";
-
-// Authentication and checkout
-import AuthPage from "../features/auth/AuthPage.jsx";
-import CheckoutPage from "../features/checkout/CheckoutPage.jsx";
-
-// Marketplace
+import ProductManagement from "../features/marketplace/ProductManagement.jsx";
 import MarketplacePage from "../features/marketplace/MarketplacePage.jsx";
-
-// Farmer dashboard
-import FarmerDashboard from "../features/farmer/FarmerDashboard.jsx";
-
-// Admin dashboard
-import AdminDashboard from "../features/admin/AdminDashboard.jsx";
-import AdminLayout from "../features/admin/AdminLayout.jsx";
-import FieldOfficers from "../features/admin/pages/FieldOfficers.jsx";
-import Farmers from "../features/admin/pages/Farmers.jsx";
-import Buyers from "../features/admin/Buyers.jsx";
-import Products from "../features/admin/pages/Products.jsx";
-import Categories from "../features/admin/pages/Categories.jsx";
-import OrdersAdmin from "../features/admin/pages/Orders.jsx";
-import AdminVerification from "../features/admin/pages/AdminVerification.jsx";
-
-// Existing pages
+import ProductDetailsPage from "../features/marketplace/ProductDetailsPage.jsx";
+import DashboardLayout from "../components/layout/DashboardLayout.jsx";
 import AboutPage from "./AboutPage.jsx";
 import ProfilePage from "./ProfilePage.jsx";
 import TrackOrdersPage from "./TrackOrdersPage.jsx";
@@ -34,6 +14,7 @@ import {
   Marketplace,
   Login,
   Register,
+  Dashboard,
   MyProduce,
   BuyerRequests,
   Orders,
@@ -42,22 +23,19 @@ import {
 } from "./PlaceholderPages.jsx";
 
 const router = createBrowserRouter([
-  // Public pages
   {
     path: "/",
     element: <App />,
     children: [
       { index: true, element: <Home /> },
       { path: "marketplace", element: <MarketplacePage /> },
+      { path: "marketplace/:id", element: <ProductDetailsPage /> },
       { path: "about", element: <AboutPage /> },
       { path: "login", element: <Login /> },
       { path: "register", element: <Register /> },
-      { path: "auth", element: <AuthPage /> },
-      { path: "checkout", element: <CheckoutPage /> },
+      { path: "my-products", element: <ProductManagement /> },
     ],
   },
-
-  // Farmer dashboard
   {
     path: "/dashboard",
     element: <FarmerDashboard />,
@@ -75,9 +53,9 @@ const router = createBrowserRouter([
   // Buyer dashboard
   {
     path: "/buyer",
-    element: <FarmerDashboard />,
+    element: <DashboardLayout variant="buyer" />,
     children: [
-      { index: true, element: <Marketplace /> },
+      { index: true, element: <Dashboard /> },
       { path: "orders", element: <Orders /> },
       { path: "track-orders", element: <TrackOrdersPage /> },
       { path: "payments", element: <Payments /> },
@@ -103,7 +81,5 @@ const router = createBrowserRouter([
 ]);
 
 export default router;
-
-
 
 
