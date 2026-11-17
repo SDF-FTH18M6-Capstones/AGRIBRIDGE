@@ -11,7 +11,7 @@ def client():
         "TESTING": True,
         "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
         "SECRET_KEY": "test-secret",
-        "JWT_SECRET_KEY": "test-jwt-secret",
+        "JWT_SECRET_KEY": "test-jwt-secret-that-is-at-least-32-bytes",
     })
 
     with app.app_context():

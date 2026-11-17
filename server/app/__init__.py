@@ -3,6 +3,7 @@ from flask_cors import CORS
 
 from app.config import Config
 from app.extensions import db, migrate, jwt, bcrypt
+from app.routes.auth import auth_bp
 from app.routes.products import products_bp
 from app.routes.health import health_bp
 from app import models
@@ -41,7 +42,8 @@ def create_app(test_config=None):
     migrate.init_app(app, db)
     bcrypt.init_app(app)
     jwt.init_app(app)
-    app.register_blueprint( products_bp, url_prefix="/api/products")
+    app.register_blueprint(auth_bp, url_prefix="/api")
+    app.register_blueprint(products_bp, url_prefix="/api/products")
     app.register_blueprint(health_bp, url_prefix="/api")
 
     return app

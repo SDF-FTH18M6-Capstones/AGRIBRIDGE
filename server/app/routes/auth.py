@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import create_access_token
 from marshmallow import ValidationError
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 
 from app.extensions import db
@@ -43,7 +44,7 @@ def register():
     if phone_number == "":
         phone_number = None
 
-    existing_user = User.query.filter_by(email=email).first()
+    existing_user = User.query.filter(func.lower(User.email) == email).first()
     if existing_user:
         return jsonify({
             "error": {
@@ -60,23 +61,22 @@ def register():
             }
         }), 409
 
-    role_name = values["role"]
-    role = Role.query.filter_by(role_name=role_name).first()
-    if role is None:
-        role = Role(role_name=role_name)
-        db.session.add(role)
-        db.session.flush()
-
-    user = User(
-        full_name=values["full_name"].strip(),
-        email=email,
-        phone_number=phone_number,
-        role_id=role.role_id,
-    )
-    user.set_password(values["password"])
-    db.session.add(user)
-
     try:
+        role_name = values["role"]
+        role = Role.query.filter_by(role_name=role_name).first()
+        if role is None:
+            role = Role(role_name=role_name)
+            db.session.add(role)
+            db.session.flush()
+
+        user = User(
+            full_name=values["full_name"].strip(),
+            email=email,
+            phone_number=phone_number,
+            role_id=role.role_id,
+        )
+        user.set_password(values["password"])
+        db.session.add(user)
         db.session.commit()
     except IntegrityError:
         db.session.rollback()
