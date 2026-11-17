@@ -1,5 +1,14 @@
 from sqlalchemy import Numeric
-from extensions import db
+from app.extensions import db, bcrypt
+
+class Role(db.Model):
+    __tablename__="roles"
+
+    role_id=db.Column(db.Integer, primary_key=True)
+    role_name=db.Column(db.Text, nullable=False, unique=True)
+    description=db.Column(db.Text)
+    users=db.relationship("User", back_populates="role")
+
 
 
 class User(db.Model):
@@ -9,11 +18,59 @@ class User(db.Model):
     email = db.Column(db.Text, nullable=False, unique=True)
     password_hash = db.Column(db.Text, nullable=False)
     phone_number = db.Column(db.Text, unique=True)
-    role = db.Column(db.Text, nullable=False)
 
-    farmer_profile = db.relationship("FarmerProfile", back_populates="user", uselist=False)
-    buyer_profile = db.relationship("BuyerProfile", back_populates="user", uselist=False)
+    role_id = db.Column(
+        db.Integer,
+        db.ForeignKey("roles.role_id"),
+        nullable=False
+    )
 
+    def set_password(self, password):
+        self.password_hash = bcrypt.generate_password_hash(password).decode("utf-8")
+
+    def check_password(self, password):
+        return bcrypt.check_password_hash(self.password_hash, password)
+
+    farmer_profile = db.relationship(
+        "FarmerProfile",
+        back_populates="user",
+        uselist=False
+    )
+
+    buyer_profile = db.relationship(
+        "BuyerProfile",
+        back_populates="user",
+        uselist=False
+    )
+
+    role = db.relationship("Role", back_populates="users")
+
+    admin = db.relationship(
+        "Admin",
+        back_populates="user",
+        uselist=False
+    )
+
+class Admin(db.Model):
+    __tablename__ = "admins"
+
+    admin_id = db.Column(db.Integer, primary_key=True)
+
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.user_id"),
+        nullable=False,
+        unique=True
+    )
+
+
+    status = db.Column(
+        db.Text,
+        nullable=False,
+        default="active"
+    )
+
+    user = db.relationship("User", back_populates="admin")
 
 class FarmerProfile(db.Model):
     __tablename__ = "farmer_profiles"
