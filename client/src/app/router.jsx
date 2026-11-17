@@ -1,44 +1,50 @@
 
-import { createBrowserRouter } from "react-router-dom";
-import App from "../App.jsx";
-import ProductManagement from "../features/marketplace/ProductManagement.jsx";
-import MarketplacePage from "../features/marketplace/MarketplacePage.jsx";
-import ProductDetailsPage from "../features/marketplace/ProductDetailsPage.jsx";
-import DashboardLayout from "../components/layout/DashboardLayout.jsx";
-import AboutPage from "./AboutPage.jsx";
-import ProfilePage from "./ProfilePage.jsx";
-import TrackOrdersPage from "./TrackOrdersPage.jsx";
+import { createBrowserRouter, Navigate } from "react-router-dom";
 
-import {
-  Home,
-  Marketplace,
-  Login,
-  Register,
-  Dashboard,
-  MyProduce,
-  BuyerRequests,
-  Orders,
-  Payments,
-  Settings,
-} from "./PlaceholderPages.jsx";
+// Admin imports
+import AdminDashboard from "../features/admin/AdminDashboard.jsx";
+import AdminVerification from "../features/admin/pages/AdminVerification.jsx";
+import FieldOfficers from "../features/admin/pages/FieldOfficers.jsx";
+import Farmers from "../features/admin/pages/Farmers.jsx";
+import Buyers from "../features/admin/Buyers.jsx";
+import Products from "../features/admin/pages/Products.jsx";
+import Categories from "../features/admin/pages/Categories.jsx";
+import Orders from "../features/admin/pages/Orders.jsx";
+import PaymentsPage from "../features/admin/pages/PaymentsPage.jsx";
+import Disputes from "../features/admin/pages/Disputes.jsx";
+import Reports from "../features/admin/pages/Reports.jsx";
+import Settings from "../features/admin/pages/Settings.jsx";
+
+// Farmer layout
+import FarmerLayout from "../features/farmer/FarmerLayout.jsx";
+
+// Farmer pages
+import FarmerDashboard from "../features/farmer/pages/FarmerDashboard.jsx";
+import MyFarm from "../features/farmer/pages/MyFarm.jsx";
+import Verification from "../features/farmer/pages/Verification.jsx";
+import MyProducts from "../features/farmer/pages/MyProducts.jsx";
+import AddProduct from "../features/farmer/pages/AddProduct.jsx";
+import BuyerRequests from "../features/farmer/pages/BuyerRequests.jsx";
+import FarmerOrders from "../features/farmer/pages/FarmerOrders.jsx";
+import FarmerPayments from "../features/farmer/pages/FarmerPayments.jsx";
+import FarmerNotifications from "../features/farmer/pages/FarmerNotifications.jsx";
+import FarmerSettings from "../features/farmer/pages/FarmerSettings.jsx";
 
 const router = createBrowserRouter([
-  // Public pages
   {
     path: "/",
-    element: <App />,
-    children: [
-      { index: true, element: <Home /> },
-      { path: "marketplace", element: <MarketplacePage /> },
-      { path: "marketplace/:id", element: <ProductDetailsPage /> },
-      { path: "about", element: <AboutPage /> },
-      { path: "login", element: <Login /> },
-      { path: "register", element: <Register /> },
-      { path: "my-products", element: <ProductManagement /> },
-    ],
+    element: <Navigate to="/admin" replace />,
   },
 
-  // Farmer dashboard
+  // ADMIN ROUTES
+  {
+    path: "/admin",
+    element: <AdminDashboard />,
+  },
+  {
+    path: "/admin/verification",
+    element: <AdminVerification />,
+  },
   {
     path: "/admin/field-officers",
     element: <FieldOfficers />,
@@ -52,18 +58,81 @@ const router = createBrowserRouter([
     element: <Buyers />,
   },
   {
-    path: "/buyer",
-    element: <DashboardLayout variant="buyer" />,
+    path: "/admin/products",
+    element: <Products />,
+  },
+  {
+    path: "/admin/categories",
+    element: <Categories />,
+  },
+  {
+    path: "/admin/orders",
+    element: <Orders />,
+  },
+  {
+    path: "/admin/payments",
+    element: <PaymentsPage />,
+  },
+  {
+    path: "/admin/disputes",
+    element: <Disputes />,
+  },
+  {
+    path: "/admin/reports",
+    element: <Reports />,
+  },
+  {
+    path: "/admin/settings",
+    element: <Settings />,
+  },
+
+  // FARMER ROUTES
+  {
+    path: "/farmer",
+    element: <FarmerLayout />,
     children: [
-      { index: true, element: <Dashboard /> },
-      { path: "orders", element: <Orders /> },
-      { path: "track-orders", element: <TrackOrdersPage /> },
-      { path: "payments", element: <Payments /> },
-      { path: "profile", element: <ProfilePage /> },
+      {
+        index: true,
+        element: <FarmerDashboard />,
+      },
+      {
+        path: "farm",
+        element: <MyFarm />,
+      },
+      {
+        path: "verification",
+        element: <Verification />,
+      },
+      {
+        path: "products",
+        element: <MyProducts />,
+      },
+      {
+        path: "products/new",
+        element: <AddProduct />,
+      },
+      {
+        path: "requests",
+        element: <BuyerRequests />,
+      },
+      {
+        path: "orders",
+        element: <FarmerOrders />,
+      },
+      {
+        path: "payments",
+        element: <FarmerPayments />,
+      },
+      {
+        path: "notifications",
+        element: <FarmerNotifications />,
+      },
+      {
+        path: "settings",
+        element: <FarmerSettings />,
+      },
     ],
   },
 ]);
 
 export default router;
-
-
