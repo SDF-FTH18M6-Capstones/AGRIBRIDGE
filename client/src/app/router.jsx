@@ -3,6 +3,10 @@ import { createBrowserRouter } from "react-router-dom";
 
 import App from "../App.jsx";
 
+// Buyer dashboard
+import BuyerLayout from "../features/buyer/BuyerLayout.jsx";
+import BuyerDashboard from "../features/buyer/BuyerDashboard.jsx";
+
 // Authentication and checkout
 import AuthPage from "../features/auth/AuthPage.jsx";
 import CheckoutPage from "../features/checkout/CheckoutPage.jsx";
@@ -12,6 +16,8 @@ import MarketplacePage from "../features/marketplace/MarketplacePage.jsx";
 
 // Farmer dashboard
 import FarmerDashboard from "../features/farmer/FarmerDashboard.jsx";
+
+
 
 // Admin dashboard
 import AdminDashboard from "../features/admin/AdminDashboard.jsx";
@@ -24,14 +30,14 @@ import Categories from "../features/admin/pages/Categories.jsx";
 import OrdersAdmin from "../features/admin/pages/Orders.jsx";
 import AdminVerification from "../features/admin/pages/AdminVerification.jsx";
 
+
 // Existing pages
 import AboutPage from "./AboutPage.jsx";
 import ProfilePage from "./ProfilePage.jsx";
 import TrackOrdersPage from "./TrackOrdersPage.jsx";
 
 import {
-  Home,
-  Marketplace,
+  
   Login,
   Register,
   MyProduce,
@@ -40,6 +46,7 @@ import {
   Payments,
   Settings,
 } from "./PlaceholderPages.jsx";
+import HomePage from "../features/marketplace/HomePage.jsx";
 
 const router = createBrowserRouter([
   // Public pages
@@ -47,7 +54,7 @@ const router = createBrowserRouter([
     path: "/",
     element: <App />,
     children: [
-      { index: true, element: <Home /> },
+      { index: true, element: <HomePage /> },
       { path: "marketplace", element: <MarketplacePage /> },
       { path: "about", element: <AboutPage /> },
       { path: "login", element: <Login /> },
@@ -74,16 +81,16 @@ const router = createBrowserRouter([
 
   // Buyer dashboard
   {
-    path: "/buyer",
-    element: <FarmerDashboard />,
-    children: [
-      { index: true, element: <Marketplace /> },
-      { path: "orders", element: <Orders /> },
-      { path: "track-orders", element: <TrackOrdersPage /> },
-      { path: "payments", element: <Payments /> },
-      { path: "profile", element: <ProfilePage /> },
-    ],
-  },
+  path: "/buyer",
+  element: <BuyerLayout />,
+  children: [
+    { index: true, element: <BuyerDashboard /> },
+    { path: "orders", element: <Orders /> },
+    { path: "track-orders", element: <TrackOrdersPage /> },
+    { path: "payments", element: <Payments /> },
+    { path: "profile", element: <ProfilePage /> },
+  ],
+},
 
   // Admin dashboard
   {
