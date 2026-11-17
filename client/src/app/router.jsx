@@ -2,21 +2,38 @@
 import { createBrowserRouter } from "react-router-dom";
 
 import App from "../App.jsx";
-import DashboardLayout from "../components/layout/DashboardLayout.jsx";
 
-import ProductManagement from "../features/marketplace/ProductManagement.jsx";
-import HomePage from "../features/marketplace/HomePage.jsx";
-import MarketplacePage from "../features/marketplace/MarketplacePage.jsx";
-import ProductDetailsPage from "../features/marketplace/ProductDetailsPage.jsx";
+// Authentication and checkout
 import AuthPage from "../features/auth/AuthPage.jsx";
 import CheckoutPage from "../features/checkout/CheckoutPage.jsx";
+
+// Marketplace
+import MarketplacePage from "../features/marketplace/MarketplacePage.jsx";
+
+// Farmer dashboard
+import FarmerDashboard from "../features/farmer/FarmerDashboard.jsx";
+
+// Admin dashboard
+import AdminDashboard from "../features/admin/AdminDashboard.jsx";
+import AdminLayout from "../features/admin/AdminLayout.jsx";
+import FieldOfficers from "../features/admin/pages/FieldOfficers.jsx";
+import Farmers from "../features/admin/pages/Farmers.jsx";
+import Buyers from "../features/admin/Buyers.jsx";
+import Products from "../features/admin/pages/Products.jsx";
+import Categories from "../features/admin/pages/Categories.jsx";
+import OrdersAdmin from "../features/admin/pages/Orders.jsx";
+import AdminVerification from "../features/admin/pages/AdminVerification.jsx";
+
+// Existing pages
 import AboutPage from "./AboutPage.jsx";
 import ProfilePage from "./ProfilePage.jsx";
 import TrackOrdersPage from "./TrackOrdersPage.jsx";
 
 import {
+  Home,
   Marketplace,
-  Dashboard,
+  Login,
+  Register,
   MyProduce,
   BuyerRequests,
   Orders,
@@ -30,13 +47,12 @@ const router = createBrowserRouter([
     path: "/",
     element: <App />,
     children: [
-      { index: true, element: <HomePage /> },
+      { index: true, element: <Home /> },
       { path: "marketplace", element: <MarketplacePage /> },
-      { path: "marketplace/:id", element: <ProductDetailsPage /> },
       { path: "about", element: <AboutPage /> },
-      { path: "login", element: <AuthPage /> },
-      { path: "register", element: <AuthPage /> },
-      { path: "my-products", element: <ProductManagement /> },
+      { path: "login", element: <Login /> },
+      { path: "register", element: <Register /> },
+      { path: "auth", element: <AuthPage /> },
       { path: "checkout", element: <CheckoutPage /> },
     ],
   },
@@ -44,10 +60,9 @@ const router = createBrowserRouter([
   // Farmer dashboard
   {
     path: "/dashboard",
-    element: <DashboardLayout />,
+    element: <FarmerDashboard />,
     children: [
-      { index: true, element: <Dashboard /> },
-      { path: "marketplace", element: <Marketplace /> },
+      { index: true, element: <MyProduce /> },
       { path: "produce", element: <MyProduce /> },
       { path: "buyer-requests", element: <BuyerRequests /> },
       { path: "orders", element: <Orders /> },
@@ -60,17 +75,35 @@ const router = createBrowserRouter([
   // Buyer dashboard
   {
     path: "/buyer",
-    element: <DashboardLayout variant="buyer" />,
+    element: <FarmerDashboard />,
     children: [
-      { index: true, element: <Dashboard /> },
+      { index: true, element: <Marketplace /> },
       { path: "orders", element: <Orders /> },
       { path: "track-orders", element: <TrackOrdersPage /> },
       { path: "payments", element: <Payments /> },
       { path: "profile", element: <ProfilePage /> },
     ],
   },
+
+  // Admin dashboard
+  {
+    path: "/admin",
+    element: <AdminLayout />,
+    children: [
+      { index: true, element: <AdminDashboard /> },
+      { path: "farmers", element: <Farmers /> },
+      { path: "buyers", element: <Buyers /> },
+      { path: "field-officers", element: <FieldOfficers /> },
+      { path: "products", element: <Products /> },
+      { path: "categories", element: <Categories /> },
+      { path: "orders", element: <OrdersAdmin /> },
+      { path: "verification", element: <AdminVerification /> },
+    ],
+  },
 ]);
 
 export default router;
+
+
 
 
