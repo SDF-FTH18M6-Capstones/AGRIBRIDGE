@@ -1,11 +1,10 @@
 """Repeatable sample data for local AgriBridge development."""
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
 import click
 from sqlalchemy import select
-from werkzeug.security import generate_password_hash
 
 from app.extensions import db
 from app.models import (
@@ -18,9 +17,11 @@ from app.models import (
     Payment,
     Product,
     ProductImage,
+    Role,
     RequestResponse,
     Review,
     User,
+    Admin,
 )
 
 
@@ -49,6 +50,7 @@ def seed_database():
         ("Kisumu Fresh Market", "kisumu.buyer@example.com", "+254700100104", "buyer"),
         ("AgriBridge Admin", "admin@example.com", "+254700100100", "admin"),
     )
+    roles = {name: _upsert(Role, {"name": name}, {}) for name in ("admin", "farmer", "buyer")}
     users = {}
     for full_name, email, phone, role in people:
         user = db.session.scalar(select(User).filter_by(email=email))
@@ -57,16 +59,18 @@ def seed_database():
                 full_name=full_name,
                 email=email,
                 phone_number=phone,
-                role=role,
-                password_hash=generate_password_hash(SEED_PASSWORD),
+                role=roles[role],
             )
+            user.set_password(SEED_PASSWORD)
             db.session.add(user)
             db.session.flush()
         else:
             user.full_name = full_name
             user.phone_number = phone
-            user.role = role
+            user.role = roles[role]
         users[email] = user
+
+    _upsert(Admin, {"user_id": users["admin@example.com"].user_id}, {})
 
     farmer_data = (
         ("amina", "amina.farmer@example.com", "Green Valley Farm", "Limuru, Kiambu",
@@ -125,12 +129,11 @@ def seed_database():
              "quality": quality, "availability_date": date.today(), "status": "available"},
         )
         products[name] = product
-        _upsert(
-            ProductImage,
-            {"product_id": product.product_id,
-             "image_url": image_url},
-            {},
-        )
+        image = db.session.scalar(select(ProductImage).filter_by(product_id=product.product_id))
+        if image is None:
+            db.session.add(ProductImage(product_id=product.product_id, image_url=image_url))
+        else:
+            image.image_url = image_url
 
     request = _upsert(
         BuyerRequest,
@@ -148,11 +151,14 @@ def seed_database():
          "status": "pending"},
     )
 
-    order = _upsert(
-        Order,
-        {"buyer_id": buyers["market"].buyer_id, "farmer_id": farmers["peter"].farmer_id},
-        {"total_amount": Decimal("1400.00"), "order_status": "delivered"},
-    )
+    payment_ref = "AGRIBRIDGE-SEED-PAYMENT-001"
+    seed_payment = db.session.scalar(select(Payment).filter_by(transaction_reference=payment_ref))
+    order = seed_payment.order if seed_payment else None
+    if order is None:
+        order = Order(buyer_id=buyers["market"].buyer_id, farmer_id=farmers["peter"].farmer_id,
+                      total_amount=Decimal("1400.00"), order_status="delivered")
+        db.session.add(order)
+        db.session.flush()
     _upsert(
         OrderItem,
         {"order_id": order.order_id, "product_id": products["Sweet Bananas"].product_id},
@@ -161,10 +167,10 @@ def seed_database():
     )
     _upsert(
         Payment,
-        {"transaction_reference": "AGRIBRIDGE-SEED-PAYMENT-001"},
+        {"transaction_reference": payment_ref},
         {"order_id": order.order_id, "payment_method": "M-Pesa",
          "amount": Decimal("1400.00"), "payment_status": "completed",
-         "paid_at": datetime.utcnow() - timedelta(days=1)},
+         "paid_at": datetime.now(timezone.utc) - timedelta(days=1)},
     )
     _upsert(
         Review,
@@ -177,11 +183,15 @@ def seed_database():
 def register_seed_command(app):
     @app.cli.command("seed")
     def seed_command():
-        """Create missing tables and add repeatable local sample data."""
+        """Add repeatable sample data to a migrated development database."""
+        if app.config.get("ENVIRONMENT", "development").lower() == "production":
+            raise click.ClickException("Sample seeding is disabled in production.")
         try:
-            db.create_all()
             seed_database()
         except Exception:
             db.session.rollback()
             raise
-        click.echo(f"Sample data is ready. Demo password: {SEED_PASSWORD}")
+        if app.config.get("DEBUG", False) or app.config.get("TESTING", False):
+            click.echo(f"Sample data is ready. Demo password: {SEED_PASSWORD}")
+        else:
+            click.echo("Sample data is ready.")

@@ -1,5 +1,5 @@
-from sqlalchemy import Numeric
-from extensions import db
+from sqlalchemy import CheckConstraint, Numeric, UniqueConstraint
+from app.extensions import db, bcrypt
 
 
 class User(db.Model):
@@ -9,10 +9,29 @@ class User(db.Model):
     email = db.Column(db.Text, nullable=False, unique=True)
     password_hash = db.Column(db.Text, nullable=False)
     phone_number = db.Column(db.Text, unique=True)
-    role = db.Column(db.Text, nullable=False)
+    role_id = db.Column(db.Integer, db.ForeignKey("roles.role_id"), nullable=False)
 
+    role = db.relationship("Role", back_populates="users")
     farmer_profile = db.relationship("FarmerProfile", back_populates="user", uselist=False)
     buyer_profile = db.relationship("BuyerProfile", back_populates="user", uselist=False)
+    admin_profile = db.relationship("Admin", back_populates="user", uselist=False)
+
+    def set_password(self, password):
+        self.password_hash = bcrypt.generate_password_hash(password).decode("utf-8")
+
+
+class Role(db.Model):
+    __tablename__ = "roles"
+    role_id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.Text, nullable=False, unique=True)
+    users = db.relationship("User", back_populates="role")
+
+
+class Admin(db.Model):
+    __tablename__ = "admins"
+    admin_id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.user_id"), nullable=False, unique=True)
+    user = db.relationship("User", back_populates="admin_profile")
 
 
 class FarmerProfile(db.Model):
@@ -65,6 +84,10 @@ class Product(db.Model):
     quality = db.Column(db.Text)
     availability_date = db.Column(db.Date)
     status = db.Column(db.Text, nullable=False)
+    __table_args__ = (
+        CheckConstraint("price > 0", name="check_product_price_positive"),
+        CheckConstraint("quantity_available > 0", name="check_product_quantity_positive"),
+    )
 
     farmer = db.relationship("FarmerProfile", back_populates="products")
     category = db.relationship("Category", back_populates="products")
@@ -93,6 +116,10 @@ class BuyerRequest(db.Model):
     location = db.Column(db.Text, nullable=False)
     required_date = db.Column(db.Date)
     status = db.Column(db.Text, nullable=False)
+    __table_args__ = (
+        CheckConstraint("quantity > 0", name="check_buyer_request_quantity_positive"),
+        CheckConstraint("budget IS NULL OR budget > 0", name="check_buyer_request_budget_positive"),
+    )
 
     buyer = db.relationship("BuyerProfile", back_populates="requests")
     category = db.relationship("Category", back_populates="buyer_requests")
@@ -108,6 +135,11 @@ class RequestResponse(db.Model):
     offered_price = db.Column(Numeric(12, 2), nullable=False)
     available_quantity = db.Column(Numeric(12, 3), nullable=False)
     status = db.Column(db.Text, nullable=False)
+    __table_args__ = (
+        UniqueConstraint("request_id", "farmer_id", name="uq_request_response_farmer"),
+        CheckConstraint("offered_price > 0", name="check_response_price_positive"),
+        CheckConstraint("available_quantity > 0", name="check_response_quantity_positive"),
+    )
 
     request = db.relationship("BuyerRequest", back_populates="responses")
     farmer = db.relationship("FarmerProfile", back_populates="request_responses")
@@ -120,6 +152,7 @@ class Order(db.Model):
     farmer_id = db.Column(db.Integer, db.ForeignKey("farmer_profiles.farmer_id"), nullable=False)
     total_amount = db.Column(Numeric(12, 2), nullable=False)
     order_status = db.Column(db.Text, nullable=False)
+    __table_args__ = (CheckConstraint("total_amount > 0", name="check_order_total_positive"),)
 
     buyer = db.relationship("BuyerProfile", back_populates="orders")
     farmer = db.relationship("FarmerProfile", back_populates="orders")
@@ -136,6 +169,11 @@ class OrderItem(db.Model):
     quantity = db.Column(Numeric(12, 3), nullable=False)
     unit_price = db.Column(Numeric(12, 2), nullable=False)
     subtotal = db.Column(Numeric(12, 2), nullable=False)
+    __table_args__ = (
+        CheckConstraint("quantity > 0", name="check_order_item_quantity_positive"),
+        CheckConstraint("unit_price > 0", name="check_order_item_price_positive"),
+        CheckConstraint("subtotal > 0", name="check_order_item_subtotal_positive"),
+    )
 
     order = db.relationship("Order", back_populates="items")
     product = db.relationship("Product", back_populates="order_items")
@@ -149,7 +187,8 @@ class Payment(db.Model):
     transaction_reference = db.Column(db.Text, unique=True)
     amount = db.Column(Numeric(12, 2), nullable=False)
     payment_status = db.Column(db.Text, nullable=False)
-    paid_at = db.Column(db.DateTime)
+    paid_at = db.Column(db.DateTime(timezone=True))
+    __table_args__ = (CheckConstraint("amount > 0", name="check_payment_amount_positive"),)
 
     order = db.relationship("Order", back_populates="payments")
 
@@ -160,5 +199,6 @@ class Review(db.Model):
     order_id = db.Column(db.Integer, db.ForeignKey("orders.order_id"), nullable=False, unique=True)
     rating = db.Column(db.Integer, nullable=False)
     comment = db.Column(db.Text)
+    __table_args__ = (CheckConstraint("rating >= 1 AND rating <= 5", name="check_review_rating_range"),)
 
     order = db.relationship("Order", back_populates="review")

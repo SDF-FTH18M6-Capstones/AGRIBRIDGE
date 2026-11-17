@@ -2,8 +2,9 @@ from flask import Flask
 from flask_cors import CORS
 
 from app.config import Config
-from app.extensions import db, migrate, jwt
+from app.extensions import db, migrate, jwt, bcrypt
 from app.routes.health import health_bp
+from app.seed import register_seed_command
 
 
 def create_app(test_config=None):
@@ -23,7 +24,9 @@ def create_app(test_config=None):
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
+    bcrypt.init_app(app)
 
     app.register_blueprint(health_bp, url_prefix="/api")
+    register_seed_command(app)
 
     return app
