@@ -20,7 +20,6 @@ function FarmerHeader() {
 
   return (
     <header className="relative z-20 flex w-full min-h-[76px] flex-wrap items-center justify-between gap-4 border-b border-gray-200 bg-white px-5 py-4 shadow-sm lg:px-8">
-      {/* Portal title */}
       <div className="shrink-0">
         <p className="text-sm font-medium text-gray-500">
           Farmer Portal
@@ -31,9 +30,7 @@ function FarmerHeader() {
         </h2>
       </div>
 
-      {/* Header actions */}
       <nav className="flex flex-wrap items-center gap-3">
-        {/* Switch to Buyer */}
         <Link
           to="/buyer"
           className="inline-flex items-center justify-center rounded-lg border border-[#174832] bg-white px-4 py-2 text-sm font-semibold text-[#174832] hover:bg-[#174832] hover:text-white"
@@ -41,7 +38,6 @@ function FarmerHeader() {
           Switch to Buyer
         </Link>
 
-        {/* Notifications */}
         <Link
           to="/farmer/notifications"
           className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-green-50 hover:text-[#159447]"
@@ -50,7 +46,6 @@ function FarmerHeader() {
           Notifications
         </Link>
 
-        {/* Profile */}
         <Link
           to="/farmer/settings"
           className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-green-50 hover:text-[#159447]"
@@ -59,7 +54,6 @@ function FarmerHeader() {
           Profile
         </Link>
 
-        {/* Logout */}
         <button
           type="button"
           onClick={handleLogout}

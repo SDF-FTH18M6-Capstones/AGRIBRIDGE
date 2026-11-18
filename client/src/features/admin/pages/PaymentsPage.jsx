@@ -15,7 +15,8 @@ function PaymentsPage() {
           JSON.parse(localStorage.getItem(PAYMENTS_KEY)) || [];
 
         setTransactions(savedPayments);
-      } catch {
+      } catch (error) {
+        console.error("Could not load payments:", error);
         setTransactions([]);
       }
     };
@@ -33,23 +34,24 @@ function PaymentsPage() {
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter((transaction) => {
-      const searchText = search.toLowerCase();
+      const searchText = search.trim().toLowerCase();
 
-      const matchesSearch =
-        String(transaction.date || "").toLowerCase().includes(searchText) ||
-        String(transaction.order || transaction.orderId || "")
-          .toLowerCase()
-          .includes(searchText) ||
-        String(transaction.buyerName || "")
-          .toLowerCase()
-          .includes(searchText) ||
-        String(transaction.farmerName || "")
-          .toLowerCase()
-          .includes(searchText);
+      const matchesSearch = [
+        transaction.date,
+        transaction.order,
+        transaction.orderId,
+        transaction.buyerName,
+        transaction.buyer,
+        transaction.farmerName,
+        transaction.farmer,
+        transaction.receipt,
+        transaction.mpesaReceipt,
+      ]
+        .map((value) => String(value || "").toLowerCase())
+        .some((value) => value.includes(searchText));
 
       const matchesStatus =
-        statusFilter === "All" ||
-        transaction.status === statusFilter;
+        statusFilter === "All" || transaction.status === statusFilter;
 
       return matchesSearch && matchesStatus;
     });
@@ -82,8 +84,8 @@ function PaymentsPage() {
     const rows = filteredTransactions.map((transaction) => [
       transaction.date || "",
       transaction.order || transaction.orderId || "",
-      transaction.buyerName || "",
-      transaction.farmerName || "",
+      transaction.buyerName || transaction.buyer || "",
+      transaction.farmerName || transaction.farmer || "",
       transaction.amount || 0,
       transaction.method || "M-Pesa",
       transaction.receipt || transaction.mpesaReceipt || "",
@@ -205,13 +207,13 @@ function PaymentsPage() {
             type="text"
             placeholder="Search: date, order, buyer, farmer..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(event) => setSearch(event.target.value)}
             style={styles.input}
           />
 
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(event) => setStatusFilter(event.target.value)}
             style={styles.input}
           >
             <option value="All">All statuses</option>
@@ -251,22 +253,22 @@ function PaymentsPage() {
 
             <tbody>
               {filteredTransactions.length > 0 ? (
-                filteredTransactions.map((transaction) => (
-                  <tr key={transaction.id}>
+                filteredTransactions.map((transaction, index) => (
+                  <tr key={transaction.id || transaction.orderId || index}>
                     <td style={styles.cell}>
                       {transaction.date || "—"}
                     </td>
 
                     <td style={styles.cell}>
-                      {transaction.order || transaction.orderId}
+                      {transaction.order || transaction.orderId || "—"}
                     </td>
 
                     <td style={styles.cell}>
-                      {transaction.buyerName || "—"}
+                      {transaction.buyerName || transaction.buyer || "—"}
                     </td>
 
                     <td style={styles.cell}>
-                      {transaction.farmerName || "—"}
+                      {transaction.farmerName || transaction.farmer || "—"}
                     </td>
 
                     <td style={styles.cell}>
@@ -279,7 +281,9 @@ function PaymentsPage() {
                     </td>
 
                     <td style={styles.cell}>
-                      {transaction.receipt || transaction.mpesaReceipt || "Awaiting"}
+                      {transaction.receipt ||
+                        transaction.mpesaReceipt ||
+                        "Awaiting"}
                     </td>
 
                     <td style={styles.cell}>
@@ -288,11 +292,11 @@ function PaymentsPage() {
                           transaction.status === "Paid"
                             ? "bg-green-100 text-green-700"
                             : transaction.status === "Pending"
-                            ? "bg-yellow-100 text-yellow-800"
-                            : "bg-red-100 text-red-700"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : "bg-red-100 text-red-700"
                         }`}
                       >
-                        {transaction.status}
+                        {transaction.status || "Pending"}
                       </span>
                     </td>
                   </tr>
@@ -325,3 +329,4 @@ function PaymentsPage() {
 }
 
 export default PaymentsPage;
+

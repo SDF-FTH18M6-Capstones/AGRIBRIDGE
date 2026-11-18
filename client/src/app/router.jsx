@@ -1,19 +1,25 @@
 
 import { createBrowserRouter, Navigate } from "react-router-dom";
-
 import App from "../App.jsx";
 
+// Authentication
+import AuthPage from "../features/auth/AuthPage.jsx";
+import LoginPage from "../features/auth/LoginPage.jsx";
+import SignUpPage from "../features/auth/SignUpPage.jsx";
+import RoleSelectionPage from "../features/auth/RoleSelectionPage.jsx";
+import ProtectedRoute from "../components/auth/ProtectedRoute.jsx";
+
+// Checkout
+import CheckoutPage from "../features/checkout/CheckoutPage.jsx";
+
 // Public pages
+import HomePage from "../features/marketplace/HomePage.jsx";
 import ProductManagement from "../features/marketplace/ProductManagement.jsx";
 import MarketplacePage from "../features/marketplace/MarketplacePage.jsx";
 import ProductDetailsPage from "../features/marketplace/ProductDetailsPage.jsx";
 import AboutPage from "./AboutPage.jsx";
-
-import {
-  Home,
-  Login,
-  Register,
-} from "./PlaceholderPages.jsx";
+import ProfilePage from "./ProfilePage.jsx";
+import TrackOrdersPage from "./TrackOrdersPage.jsx";
 
 // Admin imports
 import AdminLayout from "../features/admin/AdminLayout.jsx";
@@ -38,7 +44,7 @@ import MyFarm from "../features/farmer/pages/MyFarm.jsx";
 import Verification from "../features/farmer/pages/Verification.jsx";
 import MyProducts from "../features/farmer/pages/MyProducts.jsx";
 import AddProduct from "../features/farmer/pages/AddProduct.jsx";
-import BuyerRequests from "../features/farmer/pages/BuyerRequests.jsx";
+import FarmerBuyerRequests from "../features/farmer/pages/BuyerRequests.jsx";
 import FarmerOrders from "../features/farmer/pages/FarmerOrders.jsx";
 import FarmerPayments from "../features/farmer/pages/FarmerPayments.jsx";
 import FarmerNotifications from "../features/farmer/pages/FarmerNotifications.jsx";
@@ -66,12 +72,15 @@ const router = createBrowserRouter([
     path: "/",
     element: <App />,
     children: [
-      { index: true, element: <Home /> },
+      { index: true, element: <HomePage /> },
       { path: "marketplace", element: <MarketplacePage /> },
       { path: "marketplace/:id", element: <ProductDetailsPage /> },
       { path: "about", element: <AboutPage /> },
-      { path: "login", element: <Login /> },
-      { path: "register", element: <Register /> },
+      { path: "login", element: <LoginPage /> },
+      { path: "register", element: <SignUpPage /> },
+      { path: "select-role", element: <RoleSelectionPage /> },
+      { path: "auth", element: <AuthPage /> },
+      { path: "checkout", element: <CheckoutPage /> },
       { path: "my-products", element: <ProductManagement /> },
     ],
   },
@@ -79,16 +88,20 @@ const router = createBrowserRouter([
   // Admin dashboard
   {
     path: "/admin",
-    element: <AdminLayout />,
+    element: (
+      <ProtectedRoute allowedRoles={["admin"]}>
+        <AdminLayout />
+      </ProtectedRoute>
+    ),
     children: [
       { index: true, element: <AdminDashboard /> },
+      { path: "verification", element: <AdminVerification /> },
+      { path: "field-officers", element: <FieldOfficers /> },
       { path: "farmers", element: <Farmers /> },
       { path: "buyers", element: <Buyers /> },
-      { path: "field-officers", element: <FieldOfficers /> },
       { path: "products", element: <Products /> },
       { path: "categories", element: <Categories /> },
       { path: "orders", element: <OrdersAdmin /> },
-      { path: "verification", element: <AdminVerification /> },
       { path: "payments", element: <PaymentsPage /> },
       { path: "notifications", element: <AdminNotifications /> },
       { path: "disputes", element: <Disputes /> },
@@ -100,14 +113,18 @@ const router = createBrowserRouter([
   // Farmer dashboard
   {
     path: "/farmer",
-    element: <FarmerLayout />,
+    element: (
+      <ProtectedRoute allowedRoles={["farmer"]}>
+        <FarmerLayout />
+      </ProtectedRoute>
+    ),
     children: [
       { index: true, element: <FarmerDashboard /> },
       { path: "farm", element: <MyFarm /> },
       { path: "verification", element: <Verification /> },
       { path: "products", element: <MyProducts /> },
-      { path: "add-product", element: <AddProduct /> },
-      { path: "buyer-requests", element: <BuyerRequests /> },
+      { path: "products/new", element: <AddProduct /> },
+      { path: "requests", element: <FarmerBuyerRequests /> },
       { path: "orders", element: <FarmerOrders /> },
       { path: "payments", element: <FarmerPayments /> },
       { path: "notifications", element: <FarmerNotifications /> },
@@ -115,16 +132,24 @@ const router = createBrowserRouter([
     ],
   },
 
-  // Keep the older farmer dashboard URL working
+  // Legacy farmer dashboard URL
   {
     path: "/dashboard",
-    element: <Navigate to="/farmer" replace />,
+    element: (
+      <ProtectedRoute allowedRoles={["farmer"]}>
+        <Navigate to="/farmer" replace />
+      </ProtectedRoute>
+    ),
   },
 
   // Buyer dashboard
   {
     path: "/buyer",
-    element: <BuyerLayout />,
+    element: (
+      <ProtectedRoute allowedRoles={["buyer"]}>
+        <BuyerLayout />
+      </ProtectedRoute>
+    ),
     children: [
       { index: true, element: <BuyerDashboard /> },
       { path: "browse", element: <BrowseProducts /> },
@@ -142,8 +167,17 @@ const router = createBrowserRouter([
   // Field Officer dashboard
   {
     path: "/field-officer",
-    element: <FieldOfficerDashboard />,
+    element: (
+      <ProtectedRoute allowedRoles={["field-officer"]}>
+        <FieldOfficerDashboard />
+      </ProtectedRoute>
+    ),
   },
+
+  // Existing profile and tracking pages
+  { path: "/profile", element: <ProfilePage /> },
+  { path: "/track-orders", element: <TrackOrdersPage /> },
 ]);
 
 export default router;
+

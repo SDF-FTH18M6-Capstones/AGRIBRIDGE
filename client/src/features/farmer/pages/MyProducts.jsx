@@ -3,7 +3,6 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 
 const ADD_PRODUCT_PATH = "/farmer/products/new";
-
 const STORAGE_KEY = "agribridge-farmer-products";
 
 const STATUSES = ["Draft", "Active", "Sold out", "Unavailable", "Archived"];
@@ -34,7 +33,8 @@ const loadProducts = () => {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     return saved ? JSON.parse(saved) : sampleProducts;
-  } catch {
+  } catch (error) {
+    console.error("Failed to load products:", error);
     return sampleProducts;
   }
 };
@@ -47,9 +47,16 @@ function FarmerMyProducts() {
   const [editDraft, setEditDraft] = useState({});
   const [message, setMessage] = useState("");
 
+  const inputClass =
+    "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 outline-none transition focus:border-[#168343] focus:ring-2 focus:ring-green-100";
+
+  const linkButton =
+    "text-sm font-medium text-gray-700 underline hover:text-[#168343]";
+
   const save = (next) => {
     setProducts(next);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    window.dispatchEvent(new Event("agribridge-update"));
   };
 
   const patch = (id, changes) => {
@@ -63,13 +70,17 @@ function FarmerMyProducts() {
   const updateQty = (product) => {
     const raw = qtyDraft[product.id];
 
-    if (raw === "" || raw === undefined || !Number.isFinite(Number(raw)) || Number(raw) < 0) {
+    if (
+      raw === "" ||
+      raw === undefined ||
+      !Number.isFinite(Number(raw)) ||
+      Number(raw) < 0
+    ) {
       setMessage("Enter a valid quantity.");
       return;
     }
 
     const qty = Math.floor(Number(raw));
-
     let status = product.status;
 
     if (qty === 0 && status === "Active") {
@@ -148,7 +159,9 @@ function FarmerMyProducts() {
   const counts = STATUSES.reduce(
     (acc, status) => ({
       ...acc,
-      [status]: products.filter((product) => product.status === status).length,
+      [status]: products.filter(
+        (product) => product.status === status
+      ).length,
     }),
     {}
   );
@@ -158,19 +171,12 @@ function FarmerMyProducts() {
       ? products
       : products.filter((product) => product.status === filter);
 
-  const inputClass =
-    "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 outline-none transition focus:border-[#168343] focus:ring-2 focus:ring-green-100";
-
-  const linkButton =
-    "text-sm font-medium text-gray-700 underline hover:text-[#168343]";
-
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">
           My products
         </h1>
-
         <p className="mt-1 text-sm text-gray-500">
           Manage your listings, prices and stock.
         </p>
@@ -243,7 +249,7 @@ function FarmerMyProducts() {
 
                   const changed =
                     typed !== undefined &&
-                    Number(typed) !== product.qty;
+                    Number(typed) !== Number(product.qty);
 
                   return (
                     <tr
@@ -457,3 +463,4 @@ function FarmerMyProducts() {
 }
 
 export default FarmerMyProducts;
+

@@ -3,34 +3,72 @@ import { useEffect, useMemo, useState } from "react";
 
 const PAYMENTS_KEY = "agribridge-payments";
 
+function getFarmerId() {
+  try {
+    const user = JSON.parse(localStorage.getItem("user")) || {};
+    return String(user.id || user.user_id || "farmer-1");
+  } catch {
+    return "farmer-1";
+  }
+}
+
+function loadPayments() {
+  try {
+    const saved = JSON.parse(
+      localStorage.getItem(PAYMENTS_KEY) || "[]"
+    );
+
+    return Array.isArray(saved) ? saved : [];
+  } catch {
+    return [];
+  }
+}
+
+const getPaymentStatus = (payment) => {
+  const status = String(payment.status || "Pending").toLowerCase();
+
+  if (status === "received" || status === "paid" || status === "completed") {
+    return "Paid";
+  }
+
+  if (status === "failed" || status === "cancelled") {
+    return "Failed";
+  }
+
+  return "Pending";
+};
+
+const formatKsh = (amount) =>
+  `KSh ${Number(amount || 0).toLocaleString("en-KE")}`;
+
+const formatDate = (value) => {
+  if (!value) return "—";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString("en-KE", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+};
+
 function PaymentsReceivedPage() {
   const [payments, setPayments] = useState([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
-
-  const getFarmerId = () => {
-    try {
-      const user = JSON.parse(localStorage.getItem("user")) || {};
-      return String(user.id || user.user_id || "farmer-1");
-    } catch {
-      return "farmer-1";
-    }
-  };
-
-  const loadPayments = () => {
-    try {
-      return JSON.parse(localStorage.getItem(PAYMENTS_KEY)) || [];
-    } catch {
-      return [];
-    }
-  };
 
   useEffect(() => {
     const refreshPayments = () => {
       const farmerId = getFarmerId();
 
       const farmerPayments = loadPayments().filter(
-        (payment) => String(payment.farmerId) === farmerId
+        (payment) =>
+          String(payment.farmerId || payment.sellerId || "") === farmerId
       );
 
       setPayments(farmerPayments);
@@ -49,33 +87,44 @@ function PaymentsReceivedPage() {
 
   const filteredPayments = useMemo(() => {
     return payments.filter((payment) => {
-      const searchText = search.toLowerCase();
+      const searchText = search.trim().toLowerCase();
 
-      const matchesSearch =
-        String(payment.order || payment.orderId || "")
-          .toLowerCase()
-          .includes(searchText) ||
-        String(payment.buyerName || "")
-          .toLowerCase()
-          .includes(searchText) ||
-        String(payment.date || "")
-          .toLowerCase()
-          .includes(searchText);
+      const matchesSearch = [
+        payment.order,
+        payment.orderId,
+        payment.buyerName,
+        payment.buyer,
+        payment.date,
+        payment.receipt,
+        payment.mpesaReceipt,
+        payment.method,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(searchText);
 
       const matchesStatus =
-        statusFilter === "All" || payment.status === statusFilter;
+        statusFilter === "All" ||
+        getPaymentStatus(payment) === statusFilter;
 
       return matchesSearch && matchesStatus;
     });
   }, [payments, search, statusFilter]);
 
   const totalReceived = payments
-    .filter((payment) => payment.status === "Paid")
-    .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    .filter((payment) => getPaymentStatus(payment) === "Paid")
+    .reduce(
+      (sum, payment) => sum + Number(payment.amount || 0),
+      0
+    );
 
   const totalPending = payments
-    .filter((payment) => payment.status === "Pending")
-    .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    .filter((payment) => getPaymentStatus(payment) === "Pending")
+    .reduce(
+      (sum, payment) => sum + Number(payment.amount || 0),
+      0
+    );
 
   const downloadCSV = () => {
     const headers = [
@@ -91,16 +140,18 @@ function PaymentsReceivedPage() {
     const rows = filteredPayments.map((payment) => [
       payment.date || "",
       payment.order || payment.orderId || "",
-      payment.buyerName || "",
+      payment.buyerName || payment.buyer || "",
       payment.amount || 0,
       payment.method || "M-Pesa",
       payment.receipt || payment.mpesaReceipt || "",
-      payment.status || "Pending",
+      getPaymentStatus(payment),
     ]);
 
     const csv = [headers, ...rows]
       .map((row) =>
-        row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(",")
+        row
+          .map((value) => `"${String(value).replace(/"/g, '""')}"`)
+          .join(",")
       )
       .join("\n");
 
@@ -124,6 +175,7 @@ function PaymentsReceivedPage() {
         <h1 className="text-2xl font-bold text-gray-900">
           Payments Received
         </h1>
+
         <p className="mt-1 text-sm text-gray-500">
           View payments connected to your orders.
         </p>
@@ -132,15 +184,17 @@ function PaymentsReceivedPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="rounded-lg border border-gray-200 bg-white p-5">
           <p className="text-sm text-gray-500">Total received</p>
+
           <h2 className="mt-2 text-2xl font-bold text-green-700">
-            KSh {totalReceived.toLocaleString("en-KE")}
+            {formatKsh(totalReceived)}
           </h2>
         </div>
 
         <div className="rounded-lg border border-gray-200 bg-white p-5">
           <p className="text-sm text-gray-500">Pending payments</p>
+
           <h2 className="mt-2 text-2xl font-bold text-yellow-700">
-            KSh {totalPending.toLocaleString("en-KE")}
+            {formatKsh(totalPending)}
           </h2>
         </div>
       </div>
@@ -166,13 +220,13 @@ function PaymentsReceivedPage() {
             type="text"
             placeholder="Search order, buyer or date..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(event) => setSearch(event.target.value)}
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
           />
 
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(event) => setStatusFilter(event.target.value)}
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
           >
             <option value="All">All statuses</option>
@@ -195,7 +249,10 @@ function PaymentsReceivedPage() {
                   "Receipt",
                   "Status",
                 ].map((heading) => (
-                  <th key={heading} className="px-3 py-3 font-semibold">
+                  <th
+                    key={heading}
+                    className="px-3 py-3 font-semibold"
+                  >
                     {heading}
                   </th>
                 ))}
@@ -204,45 +261,57 @@ function PaymentsReceivedPage() {
 
             <tbody className="divide-y divide-gray-100 text-xs text-gray-700">
               {filteredPayments.length > 0 ? (
-                filteredPayments.map((payment) => (
-                  <tr key={payment.id}>
-                    <td className="whitespace-nowrap px-3 py-4">
-                      {payment.date || "—"}
-                    </td>
-                    <td className="px-3 py-4 font-medium text-gray-900">
-                      {payment.order || payment.orderId}
-                    </td>
-                    <td className="px-3 py-4">
-                      {payment.buyerName || "—"}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-4">
-                      KSh {Number(payment.amount || 0).toLocaleString("en-KE")}
-                    </td>
-                    <td className="px-3 py-4">
-                      {payment.method || "M-Pesa"}
-                    </td>
-                    <td className="px-3 py-4">
-                      {payment.receipt || payment.mpesaReceipt || "Awaiting"}
-                    </td>
-                    <td className="px-3 py-4">
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                          payment.status === "Paid"
-                            ? "bg-green-100 text-green-700"
-                            : payment.status === "Failed"
-                            ? "bg-red-100 text-red-700"
-                            : "bg-yellow-100 text-yellow-800"
-                        }`}
-                      >
-                        {payment.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))
+                filteredPayments.map((payment) => {
+                  const status = getPaymentStatus(payment);
+
+                  return (
+                    <tr key={payment.id}>
+                      <td className="whitespace-nowrap px-3 py-4">
+                        {formatDate(payment.date || payment.createdAt)}
+                      </td>
+
+                      <td className="px-3 py-4 font-medium text-gray-900">
+                        {payment.order || payment.orderId || "—"}
+                      </td>
+
+                      <td className="px-3 py-4">
+                        {payment.buyerName || payment.buyer || "—"}
+                      </td>
+
+                      <td className="whitespace-nowrap px-3 py-4">
+                        {formatKsh(payment.amount)}
+                      </td>
+
+                      <td className="px-3 py-4">
+                        {payment.method || "M-Pesa"}
+                      </td>
+
+                      <td className="px-3 py-4">
+                        {payment.receipt ||
+                          payment.mpesaReceipt ||
+                          "Awaiting"}
+                      </td>
+
+                      <td className="px-3 py-4">
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                            status === "Paid"
+                              ? "bg-green-100 text-green-700"
+                              : status === "Failed"
+                                ? "bg-red-100 text-red-700"
+                                : "bg-yellow-100 text-yellow-800"
+                          }`}
+                        >
+                          {status}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
                   <td
-                    colSpan="7"
+                    colSpan={7}
                     className="px-3 py-10 text-center text-gray-500"
                   >
                     No payment transactions found.

@@ -12,6 +12,14 @@ const STATUSES = [
   "Declined",
 ];
 
+const statusClass = {
+  New: "bg-blue-100 text-blue-700",
+  Accepted: "bg-amber-100 text-amber-700",
+  Paid: "bg-green-100 text-green-700",
+  Completed: "bg-gray-200 text-gray-700",
+  Declined: "bg-red-100 text-red-700",
+};
+
 function getCurrentFarmer() {
   try {
     return JSON.parse(localStorage.getItem("user")) || {};
@@ -22,14 +30,17 @@ function getCurrentFarmer() {
 
 function loadOrders() {
   try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    const saved = JSON.parse(
+      localStorage.getItem(STORAGE_KEY) || "[]"
+    );
+
     return Array.isArray(saved) ? saved : [];
   } catch {
     return [];
   }
 }
 
-const readProducts = () => {
+function readProducts() {
   try {
     const saved = JSON.parse(
       localStorage.getItem(PRODUCTS_KEY) || "[]"
@@ -39,26 +50,31 @@ const readProducts = () => {
   } catch {
     return [];
   }
-};
+}
 
 const getStatus = (order) => {
-  const status = (order.status || "New").toLowerCase();
+  const status = String(order.status || "New").toLowerCase();
 
-  if (status === "awaiting farmer" || status === "pending") {
+  if (
+    status === "awaiting farmer" ||
+    status === "pending" ||
+    status === "new"
+  ) {
     return "New";
   }
 
-  if (status === "accepted") return "Accepted";
+  if (status === "accepted" || status === "processing" || status === "shipped") {
+    return "Accepted";
+  }
+
   if (status === "paid") return "Paid";
+
   if (status === "completed" || status === "delivered") {
     return "Completed";
   }
+
   if (status === "declined" || status === "cancelled") {
     return "Declined";
-  }
-
-  if (status === "processing" || status === "shipped") {
-    return "Accepted";
   }
 
   return "New";
@@ -74,17 +90,10 @@ const getProductName = (order) => {
 
 const getQuantity = (order) => {
   const quantity = order.qty ?? order.quantity ?? 0;
-
-  if (typeof quantity === "string") {
-    return Number.parseFloat(quantity) || 0;
-  }
-
-  return Number(quantity);
+  return Number.parseFloat(quantity) || 0;
 };
 
-const getUnit = (order) => {
-  return order.unit || "unit";
-};
+const getUnit = (order) => order.unit || "unit";
 
 const getPrice = (order) => {
   if (order.price !== undefined) {
@@ -98,30 +107,24 @@ const getPrice = (order) => {
       : 0;
   }
 
-  if (typeof order.total === "number") {
+  if (order.total !== undefined) {
     const quantity = getQuantity(order);
-    return quantity > 0 ? order.total / quantity : 0;
+    return quantity > 0
+      ? Number(order.total) / quantity
+      : 0;
   }
 
   return 0;
 };
 
-const getBuyerName = (order) => {
-  return (
-    order.buyerName ||
-    order.buyer ||
-    order.customerName ||
-    "Buyer"
-  );
-};
+const getBuyerName = (order) =>
+  order.buyerName ||
+  order.buyer ||
+  order.customerName ||
+  "Buyer";
 
-const getFarmerId = (order) => {
-  return order.farmerId || order.sellerId || "";
-};
-
-const getFarmerName = (order) => {
-  return order.farmerName || order.sellerName || "Farmer";
-};
+const getFarmerId = (order) =>
+  order.farmerId || order.sellerId || "";
 
 const formatKsh = (amount) =>
   `KSh ${Number(amount).toLocaleString("en-KE")}`;
@@ -129,7 +132,13 @@ const formatKsh = (amount) =>
 const formatTime = (iso) => {
   if (!iso) return "Not available";
 
-  return new Date(iso).toLocaleString("en-KE", {
+  const date = new Date(iso);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Not available";
+  }
+
+  return date.toLocaleString("en-KE", {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -149,14 +158,6 @@ const getTimeline = (order) => {
       at: order.createdAt || new Date().toISOString(),
     },
   ];
-};
-
-const statusClass = {
-  New: "bg-blue-100 text-blue-700",
-  Accepted: "bg-amber-100 text-amber-700",
-  Paid: "bg-green-100 text-green-700",
-  Completed: "bg-gray-200 text-gray-700",
-  Declined: "bg-red-100 text-red-700",
 };
 
 const mpesaText = (order) => {
@@ -189,8 +190,6 @@ function FarmerOrders() {
   const farmer = getCurrentFarmer();
 
   const farmerId = farmer.id || farmer.user_id || "farmer-1";
-  const farmerName =
-    farmer.fullName || farmer.name || farmer.username || "Farmer";
 
   const [orders, setOrders] = useState([]);
   const [filter, setFilter] = useState("All");
@@ -198,7 +197,6 @@ function FarmerOrders() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  // Only load orders belonging to this farmer
   useEffect(() => {
     const loadFarmerOrders = () => {
       const allOrders = loadOrders();
@@ -255,6 +253,7 @@ function FarmerOrders() {
 
   const changeStatus = (order, status, label, extra = {}) => {
     const allOrders = loadOrders();
+    const now = new Date().toISOString();
 
     const updatedOrders = allOrders.map((item) => {
       if (String(item.id) !== String(order.id)) {
@@ -269,10 +268,10 @@ function FarmerOrders() {
           ...getTimeline(item),
           {
             label,
-            at: new Date().toISOString(),
+            at: now,
           },
         ],
-        updatedAt: new Date().toISOString(),
+        updatedAt: now,
       };
     });
 
@@ -285,7 +284,6 @@ function FarmerOrders() {
     setMessage("");
 
     const products = readProducts();
-
     const productName = getProductName(order);
     const quantity = getQuantity(order);
 
@@ -295,29 +293,38 @@ function FarmerOrders() {
         String(productName).toLowerCase()
     );
 
-    if (match && Number(match.qty) < quantity) {
+    if (match && Number(match.qty ?? match.quantity ?? 0) < quantity) {
       setSelectedId(order.id);
 
       setError(
-        `Not enough stock. You have ${match.qty} ${match.unit} of ${match.name} left.`
+        `Not enough stock. You have ${
+          match.qty ?? match.quantity ?? 0
+        } ${match.unit || getUnit(order)} of ${match.name} left.`
       );
 
       return;
     }
 
-    // Reduce stock if the matching product exists
     if (match) {
-      const newQty = Number(match.qty) - quantity;
+      const currentQty = Number(match.qty ?? match.quantity ?? 0);
+      const newQty = currentQty - quantity;
 
       const nextProducts = products.map((product) =>
-        product.id === match.id
+        String(product.id) === String(match.id)
           ? {
               ...product,
               qty: newQty,
+              quantity:
+                product.quantity !== undefined
+                  ? newQty
+                  : product.quantity,
               status:
-                newQty === 0 && product.status === "Active"
-                  ? "Sold out"
-                  : product.status,
+                newQty === 0
+                  ? "Out of stock"
+                  : product.status === "Sold out" ||
+                      product.status === "Out of stock"
+                    ? "Available"
+                    : product.status,
             }
           : product
       );
@@ -336,7 +343,9 @@ function FarmerOrders() {
 
     setMessage(
       match
-        ? `Order #${order.id} accepted. ${quantity} ${getUnit(order)} was deducted from your stock.`
+        ? `Order #${order.id} accepted. ${quantity} ${getUnit(
+            order
+          )} was deducted from your stock.`
         : `Order #${order.id} accepted. The buyer can now pay.`
     );
   };
@@ -367,15 +376,13 @@ function FarmerOrders() {
     setMessage(`Order #${order.id} is complete.`);
   };
 
-  const counts = STATUSES.reduce(
-    (acc, status) => ({
-      ...acc,
-      [status]: orders.filter(
-        (order) => getStatus(order) === status
-      ).length,
-    }),
-    {}
-  );
+  const counts = STATUSES.reduce((acc, status) => {
+    acc[status] = orders.filter(
+      (order) => getStatus(order) === status
+    ).length;
+
+    return acc;
+  }, {});
 
   const visible =
     filter === "All"
@@ -425,8 +432,6 @@ function FarmerOrders() {
       )}
 
       <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[1.5fr_1fr]">
-
-        {/* Orders list */}
         <section className={sectionClass}>
           <h2 className="mb-4 text-lg font-bold text-gray-900">
             Orders
@@ -511,7 +516,9 @@ function FarmerOrders() {
 
                         <td className="px-2 py-4">
                           <span
-                            className={`rounded-full px-3 py-1 text-xs font-semibold ${statusClass[status]}`}
+                            className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                              statusClass[status]
+                            }`}
                           >
                             {status}
                           </span>
@@ -560,7 +567,6 @@ function FarmerOrders() {
           )}
         </section>
 
-        {/* Order details */}
         <section className={`${sectionClass} xl:sticky xl:top-4`}>
           <h2 className="mb-3 text-lg font-bold text-gray-900">
             Order details
@@ -573,7 +579,6 @@ function FarmerOrders() {
           ) : (
             <div className="space-y-4">
               <dl className="grid grid-cols-[120px_1fr] gap-y-2 text-sm">
-
                 <dt className="text-gray-500">Order</dt>
                 <dd className="font-semibold text-gray-900">
                   #{selected.id}

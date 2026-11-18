@@ -79,7 +79,6 @@ function Orders() {
   const [search, setSearch] = useState("");
   const [selectedOrder, setSelectedOrder] = useState(null);
 
-  // Listen for changes made by the Buyer and Farmer pages.
   useEffect(() => {
     const refreshOrders = () => {
       setOrders(loadOrders());
@@ -94,7 +93,6 @@ function Orders() {
     };
   }, []);
 
-  // Search all orders.
   const filteredOrders = useMemo(() => {
     const searchTerm = search.trim().toLowerCase();
 
@@ -122,14 +120,13 @@ function Orders() {
     );
   }, [orders, search]);
 
-  // Update an order and save it to shared localStorage.
   const updateOrderStatus = (orderId, newStatus) => {
     const updatedOrders = orders.map((order) => {
       if (String(order.id) !== String(orderId)) {
         return order;
       }
 
-      const updatedOrder = {
+      return {
         ...order,
         status: newStatus,
         updatedAt: new Date().toISOString(),
@@ -141,14 +138,11 @@ function Orders() {
           },
         ],
       };
-
-      return updatedOrder;
     });
 
     setOrders(updatedOrders);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedOrders));
 
-    // Notify Buyer and Farmer pages in this browser.
     window.dispatchEvent(new Event("agribridge-update"));
 
     const updatedSelectedOrder = updatedOrders.find(
@@ -283,7 +277,6 @@ function Orders() {
             </div>
           </section>
 
-          {/* Order details */}
           {selectedOrder && (
             <div
               className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
@@ -341,7 +334,9 @@ function Orders() {
 
                   <p>
                     <strong>Quantity:</strong>{" "}
-                    {selectedOrder.qty || selectedOrder.quantity || "Not available"}{" "}
+                    {selectedOrder.qty ||
+                      selectedOrder.quantity ||
+                      "Not available"}{" "}
                     {selectedOrder.unit || ""}
                   </p>
 
@@ -415,3 +410,5 @@ function Orders() {
 }
 
 export default Orders;
+
+
