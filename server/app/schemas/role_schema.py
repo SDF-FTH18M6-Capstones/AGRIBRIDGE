@@ -8,8 +8,8 @@ class RoleSchema(Schema):
         validate=[
             validate.Length(min=2, max=50),
             validate.OneOf(
-                ["admin", "farmer", "buyer"],
-                error="Role must be admin, farmer, or buyer."
+                ["admin", "farmer", "buyer", "field_officer"],
+                error="Role must be admin, farmer, buyer or field_officer."
             )
         ]
     )

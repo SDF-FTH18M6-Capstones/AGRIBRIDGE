@@ -35,6 +35,18 @@ def test_valid_buyer_role():
 
     assert result["role_name"] == "buyer"
 
+def test_valid_field_officer_role():
+    schema = RoleSchema()
+
+    data = {
+        "role_name": "field_officer",
+        "description": "Responsible for physical farmer verification"
+    }
+
+    result = schema.load(data)
+
+    assert result["role_name"] == "field_officer"
+
 
 def test_role_name_is_required():
     schema = RoleSchema()
