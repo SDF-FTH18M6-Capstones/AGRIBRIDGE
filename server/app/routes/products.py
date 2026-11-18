@@ -1,7 +1,10 @@
 
 from flask import Blueprint, jsonify, request
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from marshmallow import ValidationError
+
 from app.schemas.product_schema import product_schema
+
 
 products_bp = Blueprint("products", __name__)
 
@@ -9,6 +12,7 @@ products_bp = Blueprint("products", __name__)
 products = {
     1: {
         "id": 1,
+        "owner_id": "1",
         "name": "Tomatoes",
         "category": "Vegetables",
         "quantity": 50,
@@ -17,6 +21,7 @@ products = {
     },
     2: {
         "id": 2,
+        "owner_id": "2",
         "name": "Potatoes",
         "category": "Vegetables",
         "quantity": 100,
@@ -28,7 +33,6 @@ products = {
 
 @products_bp.get("")
 def get_products():
-    """Retrieve all products."""
     return jsonify({
         "data": list(products.values())
     }), 200
@@ -36,7 +40,6 @@ def get_products():
 
 @products_bp.get("/<int:product_id>")
 def get_product(product_id):
-    """Retrieve a single product by ID."""
     product = products.get(product_id)
 
     if product is None:
@@ -52,11 +55,10 @@ def get_product(product_id):
     }), 200
 
 
-
-
 @products_bp.post("")
+@jwt_required()
 def create_product():
-    """Create a product using validated data."""
+    user_id = str(get_jwt_identity())
 
     data = request.get_json(silent=True)
 
@@ -83,7 +85,8 @@ def create_product():
 
     new_product = {
         "id": product_id,
-        **validated_data
+        **validated_data,
+        "owner_id": user_id
     }
 
     products[product_id] = new_product
@@ -97,8 +100,9 @@ def create_product():
 
 
 @products_bp.put("/<int:product_id>")
+@jwt_required()
 def update_product(product_id):
-    """Replace an existing product using validated data."""
+    user_id = str(get_jwt_identity())
 
     product = products.get(product_id)
 
@@ -109,6 +113,14 @@ def update_product(product_id):
                 "message": "Product not found"
             }
         }), 404
+
+    if product.get("owner_id") != user_id:
+        return jsonify({
+            "error": {
+                "code": "FORBIDDEN",
+                "message": "You are not allowed to update this product"
+            }
+        }), 403
 
     data = request.get_json(silent=True)
 
@@ -133,7 +145,8 @@ def update_product(product_id):
 
     updated_product = {
         "id": product_id,
-        **validated_data
+        **validated_data,
+        "owner_id": product["owner_id"]
     }
 
     products[product_id] = updated_product
@@ -144,11 +157,10 @@ def update_product(product_id):
     }), 200
 
 
-
-
 @products_bp.delete("/<int:product_id>")
+@jwt_required()
 def delete_product(product_id):
-    """Delete a product from temporary mock storage."""
+    user_id = str(get_jwt_identity())
 
     product = products.get(product_id)
 
@@ -159,6 +171,14 @@ def delete_product(product_id):
                 "message": "Product not found"
             }
         }), 404
+
+    if product.get("owner_id") != user_id:
+        return jsonify({
+            "error": {
+                "code": "FORBIDDEN",
+                "message": "You are not allowed to delete this product"
+            }
+        }), 403
 
     del products[product_id]
 
