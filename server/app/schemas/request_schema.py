@@ -59,35 +59,25 @@ class BuyerRequestSchema(Schema):
     )
 
 class RequestResponseSchema(Schema):
-        response_id=fields.Int(dump_only=True)
+    response_id = fields.Int(dump_only=True)
+    request_id = fields.Int(dump_only=True)
+    farmer_id = fields.Int(dump_only=True)
 
-        request_id=fields.Int(
-            required=True,
-            strict=True
-        )
+    message = fields.Str(allow_none=True)
 
-        farmer_id=fields.Int(dump_only=True)
+    offered_price = fields.Decimal(
+        required=True,
+        as_string=True,
+        validate=validate.Range(min=0.01)
+    )
 
-        message=fields.Str(
-            allow_none=True
-        )
+    available_quantity = fields.Decimal(
+        required=True,
+        as_string=True,
+        validate=validate.Range(min=0.001)
+    )
 
-        offered_price=fields.Decimal(
-            required=True,
-            as_string=True,
-            validate=validate.Range(min=0.01)
-        )
-
-        available_quantity=fields.Decimal(
-            required=True,
-            as_string=True,
-            validate=validate.Range(min=0.001)
-        )
-
-        status=fields.Str(
-            dump_only=True,
-            validate=validate.OneOf(
-                ["pending", "accepted", "rejected"]
-            )
-        )
-        
+    status = fields.Str(
+        dump_only=True,
+        validate=validate.OneOf(["pending", "accepted", "rejected"])
+    )
