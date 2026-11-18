@@ -1,583 +1,551 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faSeedling,
+  faClipboardCheck,
+  faBox,
+  faPlus,
+  faClipboardList,
+  faShoppingBag,
+  faUsers,
+  faArrowRight,
+  faLocationDot,
+  faCheck,
+  faXmark,
+} from "@fortawesome/free-solid-svg-icons";
 
-const initialProducts = [
+const PRODUCTS_KEY = "agribridge-farmer-products";
+const ORDERS_KEY = "agribridge-farmer-orders";
+const REQUESTS_KEY = "agribridge-farmer-requests";
+const VERIFICATION_KEY = "agribridge-farmer-verification";
+
+const sampleProducts = [
   {
     id: 1,
     name: "Fresh Tomatoes",
     category: "Vegetables",
-    quantity: 45,
     price: 120,
-    status: "Active",
+    quantity: 50,
+    unit: "kg",
+    status: "Available",
   },
   {
     id: 2,
     name: "Green Kale",
     category: "Vegetables",
-    quantity: 30,
     price: 40,
-    status: "Active",
+    quantity: 100,
+    unit: "bunches",
+    status: "Available",
   },
   {
     id: 3,
     name: "Sweet Bananas",
     category: "Fruits",
-    quantity: 0,
-    price: 100,
-    status: "Sold out",
+    price: 80,
+    quantity: 30,
+    unit: "kg",
+    status: "Available",
   },
   {
     id: 4,
     name: "Dry Maize",
     category: "Grains",
-    quantity: 80,
-    price: 75,
-    status: "Draft",
+    price: 65,
+    quantity: 0,
+    unit: "kg",
+    status: "Out of stock",
   },
 ];
 
-const initialOrders = [
+const sampleOrders = [
   {
     id: "ORD-1024",
-    buyer: "Mary Wanjiku",
+    buyer: "James Otieno",
     product: "Fresh Tomatoes",
-    quantity: 10,
-    amount: 1200,
+    quantity: 20,
+    total: 2400,
     status: "Pending",
   },
   {
     id: "ORD-1025",
-    buyer: "Peter Kamau",
+    buyer: "Sarah Njeri",
     product: "Green Kale",
-    quantity: 15,
-    amount: 600,
+    quantity: 30,
+    total: 1200,
     status: "Pending",
   },
   {
     id: "ORD-1026",
-    buyer: "Grace Achieng",
-    product: "Dry Maize",
-    quantity: 20,
-    amount: 1500,
+    buyer: "Peter Kamau",
+    product: "Sweet Bananas",
+    quantity: 15,
+    total: 1200,
     status: "Accepted",
   },
 ];
 
-const initialRequests = [
+const sampleRequests = [
   {
     id: 1,
     buyer: "James Otieno",
     product: "Fresh Tomatoes",
-    quantity: "25 kg",
+    quantity: "50 kg",
     location: "Nakuru",
-    status: "New",
+    date: "Today",
+    status: "Pending",
   },
   {
     id: 2,
     buyer: "Sarah Njeri",
     product: "Green Kale",
-    quantity: "15 kg",
-    location: "Naivasha",
-    status: "New",
+    quantity: "100 bunches",
+    location: "Kiambu",
+    date: "Yesterday",
+    status: "Pending",
   },
 ];
 
-const statusStyles = {
-  Active: "bg-green-100 text-green-800",
-  Pending: "bg-amber-100 text-amber-800",
-  Accepted: "bg-blue-100 text-blue-800",
-  Declined: "bg-red-100 text-red-800",
-  "Sold out": "bg-gray-100 text-gray-700",
-  Draft: "bg-gray-100 text-gray-700",
-  Unavailable: "bg-orange-100 text-orange-800",
-  Archived: "bg-slate-100 text-slate-700",
-  New: "bg-green-100 text-green-800",
-  Responded: "bg-blue-100 text-blue-800",
-};
+function getInitialData(key, sampleData) {
+  try {
+    const saved = localStorage.getItem(key);
+
+    if (saved !== null) {
+      return JSON.parse(saved);
+    }
+
+    localStorage.setItem(key, JSON.stringify(sampleData));
+    return sampleData;
+  } catch (error) {
+    console.error("Could not load dashboard data:", error);
+    return sampleData;
+  }
+}
 
 function FarmerDashboard() {
-  const [products, setProducts] = useState(initialProducts);
-  const [orders, setOrders] = useState(initialOrders);
-  const [requests, setRequests] = useState(initialRequests);
+  const [products, setProducts] = useState(() =>
+    getInitialData(PRODUCTS_KEY, sampleProducts)
+  );
+
+  const [orders, setOrders] = useState(() =>
+    getInitialData(ORDERS_KEY, sampleOrders)
+  );
+
+  const [requests, setRequests] = useState(() =>
+    getInitialData(REQUESTS_KEY, sampleRequests)
+  );
+
   const [message, setMessage] = useState("");
-  const [verificationStatus, setVerificationStatus] = useState("Pending review");
 
-  useEffect(() => {
+  const verification = (() => {
     try {
-      const savedProducts = localStorage.getItem("agribridge-farmer-products");
-      const savedOrders = localStorage.getItem("agribridge-farmer-orders");
-      const savedRequests = localStorage.getItem("agribridge-farmer-requests");
-      const savedVerification = localStorage.getItem("agribridge-farmer-verification");
-
-      if (savedProducts) setProducts(JSON.parse(savedProducts));
-      if (savedOrders) setOrders(JSON.parse(savedOrders));
-      if (savedRequests) setRequests(JSON.parse(savedRequests));
-      if (savedVerification) setVerificationStatus(savedVerification);
-    } catch (error) {
-      console.error("Failed to load dashboard data from localStorage:", error);
+      const saved = localStorage.getItem(VERIFICATION_KEY);
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
     }
-  }, []);
+  })();
+
+  const verificationStatus = verification?.status || "not_submitted";
+
+  const pendingOrders = orders.filter(
+    (order) => order.status === "Pending"
+  ).length;
+
+  const availableProducts = products.filter(
+    (product) =>
+      product.status === "Available" &&
+      Number(product.quantity) > 0
+  ).length;
+
+  const pendingRequests = requests.filter(
+    (request) => request.status === "Pending"
+  ).length;
 
   const saveProducts = (updatedProducts) => {
     setProducts(updatedProducts);
-    localStorage.setItem("agribridge-farmer-products", JSON.stringify(updatedProducts));
+    localStorage.setItem(
+      PRODUCTS_KEY,
+      JSON.stringify(updatedProducts)
+    );
   };
 
   const saveOrders = (updatedOrders) => {
     setOrders(updatedOrders);
-    localStorage.setItem("agribridge-farmer-orders", JSON.stringify(updatedOrders));
+    localStorage.setItem(
+      ORDERS_KEY,
+      JSON.stringify(updatedOrders)
+    );
   };
 
-  const updateOrder = (id, status) => {
-    const targetOrder = orders.find((o) => o.id === id);
+  const saveRequests = (updatedRequests) => {
+    setRequests(updatedRequests);
+    localStorage.setItem(
+      REQUESTS_KEY,
+      JSON.stringify(updatedRequests)
+    );
+  };
 
-    if (status === "Accepted" && targetOrder) {
-      const updatedProducts = products.map((product) => {
-        if (product.name === targetOrder.product) {
-          const newQty = Math.max(0, product.quantity - targetOrder.quantity);
-          return {
-            ...product,
-            quantity: newQty,
-            status: newQty === 0 ? "Sold out" : product.status,
-          };
-        }
-        return product;
-      });
-      saveProducts(updatedProducts);
-    }
-
+  const updateOrderStatus = (id, status) => {
     const updatedOrders = orders.map((order) =>
       order.id === id ? { ...order, status } : order
     );
+
     saveOrders(updatedOrders);
-    setMessage(`Order ${id} ${status.toLowerCase()} successfully.`);
+    setMessage(`Order ${id} has been ${status.toLowerCase()}.`);
   };
 
-  const updateQuantity = (id, rawValue) => {
-    const parsed = Number(rawValue);
-    const safeQty = Number.isNaN(parsed) ? 0 : Math.max(0, parsed);
-
-    const updatedProducts = products.map((product) =>
-      product.id === id
-        ? {
-            ...product,
-            quantity: safeQty,
-            status:
-              safeQty === 0
-                ? "Sold out"
-                : product.status === "Sold out"
-                ? "Active"
-                : product.status,
-          }
-        : product
-    );
-    saveProducts(updatedProducts);
-  };
-
-  const updateProductStatus = (id, status) => {
-    const updatedProducts = products.map((product) =>
-      product.id === id ? { ...product, status } : product
-    );
-    saveProducts(updatedProducts);
-  };
-
-  const respondToRequest = (id, status) => {
+  const updateRequestStatus = (id, status) => {
     const updatedRequests = requests.map((request) =>
-      request.id === id ? { ...request, status } : request
+      request.id === id
+        ? { ...request, status }
+        : request
     );
-    setRequests(updatedRequests);
-    localStorage.setItem("agribridge-farmer-requests", JSON.stringify(updatedRequests));
-    setMessage(`Buyer request ${status.toLowerCase()}.`);
+
+    saveRequests(updatedRequests);
+    setMessage(`Buyer request has been ${status.toLowerCase()}.`);
   };
 
-  const activeProducts = products.filter((p) => p.status === "Active").length;
-  const pendingOrders = orders.filter((o) => o.status === "Pending").length;
-  const totalSales = orders
-    .filter((o) => o.status === "Accepted")
-    .reduce((total, o) => total + o.amount, 0);
-  const totalOrders = orders.length;
+  const updateProductQuantity = (id) => {
+    const product = products.find((item) => item.id === id);
+
+    if (!product) return;
+
+    const newQuantity = window.prompt(
+      `Enter the new quantity for ${product.name}:`,
+      product.quantity
+    );
+
+    if (newQuantity === null) return;
+
+    if (
+      newQuantity.trim() === "" ||
+      Number(newQuantity) < 0 ||
+      !Number.isFinite(Number(newQuantity))
+    ) {
+      setMessage("Please enter a valid quantity.");
+      return;
+    }
+
+    const quantity = Number(newQuantity);
+
+    const updatedProducts = products.map((item) =>
+      item.id === id
+        ? {
+            ...item,
+            quantity,
+            status: quantity > 0 ? "Available" : "Out of stock",
+          }
+        : item
+    );
+
+    saveProducts(updatedProducts);
+    setMessage("Product quantity updated successfully.");
+  };
 
   const stats = [
     {
-      label: "Active products",
-      value: activeProducts,
-      icon: "▣",
-      color: "bg-green-50 text-green-700",
+      title: "Total Products",
+      value: products.length,
+      description: "Products listed",
+      icon: faBox,
+      color: "bg-green-100 text-green-700",
     },
     {
-      label: "Total orders",
-      value: totalOrders,
-      icon: "▤",
-      color: "bg-blue-50 text-blue-700",
+      title: "Available Products",
+      value: availableProducts,
+      description: "Currently in stock",
+      icon: faSeedling,
+      color: "bg-blue-100 text-blue-700",
     },
     {
-      label: "Pending orders",
+      title: "Pending Orders",
       value: pendingOrders,
-      icon: "◷",
-      color: "bg-amber-50 text-amber-700",
+      description: "Awaiting your response",
+      icon: faShoppingBag,
+      color: "bg-orange-100 text-orange-700",
     },
     {
-      label: "Sales",
-      value: `KSh ${totalSales.toLocaleString("en-KE")}`,
-      icon: "KSh",
-      color: "bg-purple-50 text-purple-700",
+      title: "Buyer Requests",
+      value: pendingRequests,
+      description: "Requests awaiting response",
+      icon: faUsers,
+      color: "bg-purple-100 text-purple-700",
     },
   ];
 
   return (
     <div className="space-y-6">
-      {/* Page title */}
-      <div>
-        <p className="mb-1 text-sm font-medium text-green-700">Welcome back</p>
-        <h2 className="text-2xl font-bold tracking-tight text-gray-900">
-          Farmer dashboard
-        </h2>
-        <p className="mt-1 text-sm text-gray-500">
-          Manage your farm, products and incoming orders.
-        </p>
-      </div>
+      {/* Welcome section */}
+      <section className="flex flex-col justify-between gap-4 rounded-2xl bg-[#174832] p-6 text-white shadow-sm sm:flex-row sm:items-center">
+        <div>
+          <p className="text-sm text-green-100">
+            Farmer Dashboard
+          </p>
 
-      {/* Message */}
+          <h2 className="mt-1 text-2xl font-bold sm:text-3xl">
+            Welcome to AgriBridge!
+          </h2>
+
+          <p className="mt-2 max-w-xl text-sm text-green-100">
+            Manage your farm, monitor your products and connect
+            with potential buyers from one place.
+          </p>
+        </div>
+
+        <Link
+          to="/farmer/products/new"
+          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-white px-5 py-3 text-sm font-bold text-[#174832] hover:bg-green-50"
+        >
+          <FontAwesomeIcon icon={faPlus} />
+          Add Product
+        </Link>
+      </section>
+
+      {/* Verification status */}
+      <section className="flex flex-col justify-between gap-3 rounded-xl border border-gray-200 bg-white p-5 sm:flex-row sm:items-center">
+        <div className="flex items-start gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-green-100 text-green-700">
+            <FontAwesomeIcon icon={faClipboardCheck} />
+          </div>
+
+          <div>
+            <h3 className="font-semibold text-gray-900">
+              Farmer Verification
+            </h3>
+
+            <p className="mt-1 text-sm text-gray-500">
+              {verificationStatus === "approved"
+                ? "Your farmer account has been verified."
+                : verificationStatus === "field_verified"
+                ? "Your field inspection has been completed. Awaiting final approval."
+                : verificationStatus === "field_visit_scheduled"
+                ? "A field officer has been assigned to inspect your farm."
+                : verificationStatus === "pending_review"
+                ? "Your application is waiting for admin review."
+                : verificationStatus === "rejected"
+                ? "Your verification application was rejected. Check the feedback."
+                : verificationStatus === "more_information_requested"
+                ? "Additional information is required for your application."
+                : "Complete your farmer verification to access all platform services."}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <span
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+              verificationStatus === "approved"
+                ? "bg-green-100 text-green-800"
+                : verificationStatus === "rejected"
+                ? "bg-red-100 text-red-800"
+                : "bg-orange-100 text-orange-800"
+            }`}
+          >
+            {verificationStatus === "not_submitted"
+              ? "Not submitted"
+              : verificationStatus.replaceAll("_", " ")}
+          </span>
+
+          <Link
+            to="/farmer/verification"
+            className="text-sm font-semibold text-[#174832] hover:underline"
+          >
+            View details
+            <FontAwesomeIcon
+              icon={faArrowRight}
+              className="ml-2"
+            />
+          </Link>
+        </div>
+      </section>
+
+      {/* Success / action messages */}
       {message && (
-        <div className="flex items-center justify-between rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-800">
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800">
           <span>{message}</span>
+
           <button
             type="button"
             onClick={() => setMessage("")}
-            className="ml-4 font-bold"
+            aria-label="Close message"
           >
-            ×
+            <FontAwesomeIcon icon={faXmark} />
           </button>
         </div>
       )}
 
-      {/* Verification status */}
-      <section className="flex flex-col justify-between gap-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-bold text-gray-900">Verification status:</h3>
-            <span
-              className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                verificationStatus === "Verified"
-                  ? "bg-green-100 text-green-800"
-                  : "bg-amber-100 text-amber-800"
-              }`}
-            >
-              {verificationStatus}
-            </span>
-          </div>
-          <p className="mt-1 text-sm text-gray-500">
-            Keep your farm information and documents up to date.
-          </p>
-        </div>
-        <a
-          href="/farmer/verification"
-          className="inline-flex justify-center rounded-lg border border-[#14532d] px-5 py-2.5 text-sm font-semibold text-[#14532d] transition hover:bg-green-50"
-        >
-          Continue verification
-        </a>
-      </section>
-
       {/* Statistics */}
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {stats.map((stat) => (
-          <div
-            key={stat.label}
-            className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-          >
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-gray-500">{stat.label}</p>
-              <span
-                className={`flex h-10 min-w-10 items-center justify-center rounded-lg px-2 text-sm font-bold ${stat.color}`}
-              >
-                {stat.icon}
-              </span>
-            </div>
-            <h3 className="mt-4 text-2xl font-bold text-gray-900">{stat.value}</h3>
-          </div>
-        ))}
-      </section>
+      <section>
+        <div className="mb-4">
+          <h2 className="text-lg font-bold text-gray-900">
+            Overview
+          </h2>
 
-      {/* Orders and products */}
-      <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        {/* Incoming orders */}
-        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-            <div>
-              <h3 className="font-bold text-gray-900">Incoming orders</h3>
-              <p className="mt-1 text-xs text-gray-500">
-                Review and respond to buyer orders.
-              </p>
-            </div>
-            <a
-              href="/farmer/orders"
-              className="text-sm font-semibold text-green-800 hover:underline"
+          <p className="text-sm text-gray-500">
+            Here's what's happening on your farm.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {stats.map((stat) => (
+            <div
+              key={stat.title}
+              className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
             >
-              View all
-            </a>
-          </div>
-          <div className="divide-y divide-gray-100">
-            {orders.map((order) => (
-              <div key={order.id} className="space-y-3 p-5">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <p className="font-semibold text-gray-900">{order.buyer}</p>
-                    <p className="mt-1 text-xs text-gray-500">{order.id}</p>
-                  </div>
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                      statusStyles[order.status] || "bg-gray-100 text-gray-700"
-                    }`}
-                  >
-                    {order.status}
-                  </span>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">
+                    {stat.title}
+                  </p>
+
+                  <h3 className="mt-2 text-3xl font-bold text-gray-900">
+                    {stat.value}
+                  </h3>
                 </div>
-                <div className="flex flex-wrap justify-between gap-2 text-sm text-gray-600">
-                  <span>{order.product}</span>
-                  <span>{order.quantity} units</span>
-                  <span className="font-semibold text-gray-900">
-                    KSh {order.amount.toLocaleString("en-KE")}
-                  </span>
+
+                <div
+                  className={`flex h-12 w-12 items-center justify-center rounded-xl ${stat.color}`}
+                >
+                  <FontAwesomeIcon
+                    icon={stat.icon}
+                    className="text-xl"
+                  />
                 </div>
-                {order.status === "Pending" && (
-                  <div className="flex gap-3 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => updateOrder(order.id, "Accepted")}
-                      className="flex-1 rounded-lg bg-[#123f2c] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-green-900"
-                    >
-                      Accept
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => updateOrder(order.id, "Declined")}
-                      className="flex-1 rounded-lg border border-[#14532d] px-4 py-2.5 text-sm font-semibold text-[#14532d] transition hover:bg-green-50"
-                    >
-                      Decline
-                    </button>
-                  </div>
-                )}
               </div>
-            ))}
-            {orders.length === 0 && (
-              <p className="p-6 text-center text-sm text-gray-500">
-                No incoming orders yet.
-              </p>
-            )}
-          </div>
-        </div>
 
-        {/* My products */}
-        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-4">
-            <div>
-              <h3 className="font-bold text-gray-900">My products</h3>
-              <p className="mt-1 text-xs text-gray-500">
-                Manage your listed products and stock.
+              <p className="mt-3 text-xs text-gray-500">
+                {stat.description}
               </p>
             </div>
-            <a
-              href="/farmer/products"
-              className="text-sm font-semibold text-green-800 hover:underline"
-            >
-              View all
-            </a>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[540px] text-left text-sm">
-              <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
-                <tr>
-                  <th className="px-4 py-3 font-semibold">Name</th>
-                  <th className="px-4 py-3 font-semibold">Qty left</th>
-                  <th className="px-4 py-3 font-semibold">Status</th>
-                  <th className="px-4 py-3 font-semibold">Edit</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {products.map((product) => (
-                  <tr key={product.id}>
-                    <td className="px-4 py-4">
-                      <p className="font-semibold text-gray-800">{product.name}</p>
-                      <p className="mt-1 text-xs text-gray-500">
-                        KSh {product.price} / unit
-                      </p>
-                    </td>
-                    <td className="px-4 py-4">
-                      <input
-                        type="number"
-                        min="0"
-                        value={product.quantity}
-                        onChange={(e) => updateQuantity(product.id, e.target.value)}
-                        className="w-20 rounded-md border border-gray-300 px-2 py-2 outline-none focus:border-green-700 focus:ring-1 focus:ring-green-100"
-                      />
-                    </td>
-                    <td className="px-4 py-4">
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                          statusStyles[product.status] || "bg-gray-100 text-gray-700"
-                        }`}
-                      >
-                        {product.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4">
-                      <select
-                        value={product.status}
-                        onChange={(e) =>
-                          updateProductStatus(product.id, e.target.value)
-                        }
-                        className="rounded-md border border-gray-300 bg-white px-2 py-2 text-xs outline-none focus:border-green-700"
-                      >
-                        <option value="Draft">Draft</option>
-                        <option value="Active">Active</option>
-                        <option value="Sold out">Sold out</option>
-                        <option value="Unavailable">Unavailable</option>
-                        <option value="Archived">Archived</option>
-                      </select>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="border-t border-gray-100 px-5 py-3">
-            <a
-              href="/farmer/products"
-              className="text-sm font-semibold text-green-800 hover:underline"
-            >
-              Manage all products →
-            </a>
-          </div>
+          ))}
         </div>
       </section>
 
-      {/* Bottom dashboard cards */}
-      <section className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:shadow-md">
-          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-green-100 text-lg text-green-800">
-            ✓
-          </div>
-          <h3 className="font-bold text-gray-900">Verification</h3>
-          <p className="mt-2 text-sm leading-6 text-gray-500">
-            Submit your ID, farm details and ownership documents. Track your
-            verification status.
-          </p>
-          <a
-            href="/farmer/verification"
-            className="mt-4 inline-block text-sm font-semibold text-green-800 hover:underline"
-          >
-            Manage verification →
-          </a>
-        </div>
-
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:shadow-md">
-          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-lg text-blue-800">
-            +
-          </div>
-          <h3 className="font-bold text-gray-900">Add product (4 steps)</h3>
-          <p className="mt-2 text-sm leading-6 text-gray-500">
-            Add product information, price and quantity, harvest status, farm
-            details and confirm your listing.
-          </p>
-          <a
-            href="/farmer/products/new"
-            className="mt-4 inline-block text-sm font-semibold text-green-800 hover:underline"
-          >
-            Add a product →
-          </a>
-        </div>
-
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:shadow-md">
-          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 text-lg text-amber-800">
-            ✉
-          </div>
-          <h3 className="font-bold text-gray-900">Buyer requests</h3>
-          <p className="mt-2 text-sm leading-6 text-gray-500">
-            Browse buyer requests, review their requirements and respond to
-            interested buyers.
-          </p>
-          <a
-            href="/farmer/requests"
-            className="mt-4 inline-block text-sm font-semibold text-green-800 hover:underline"
-          >
-            Browse requests →
-          </a>
-        </div>
-      </section>
-
-      {/* Buyer requests table */}
+      {/* Incoming orders */}
       <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 p-5">
           <div>
-            <h3 className="font-bold text-gray-900">Recent buyer requests</h3>
-            <p className="mt-1 text-xs text-gray-500">
-              Buyers looking for agricultural products.
+            <h2 className="font-bold text-gray-900">
+              Incoming Orders
+            </h2>
+
+            <p className="mt-1 text-sm text-gray-500">
+              Review orders from your buyers.
             </p>
           </div>
-          <a
-            href="/farmer/requests"
-            className="text-sm font-semibold text-green-800 hover:underline"
+
+          <Link
+            to="/farmer/orders"
+            className="text-sm font-semibold text-[#174832] hover:underline"
           >
-            View requests →
-          </a>
+            View all
+            <FontAwesomeIcon
+              icon={faArrowRight}
+              className="ml-2"
+            />
+          </Link>
         </div>
+
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[600px] text-left text-sm">
-            <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+          <table className="w-full min-w-[700px] text-left text-sm">
+            <thead className="bg-gray-50 text-xs uppercase text-gray-500">
               <tr>
-                <th className="px-5 py-3 font-semibold">Buyer</th>
-                <th className="px-5 py-3 font-semibold">Product</th>
-                <th className="px-5 py-3 font-semibold">Quantity</th>
-                <th className="px-5 py-3 font-semibold">Location</th>
-                <th className="px-5 py-3 font-semibold">Status</th>
-                <th className="px-5 py-3 font-semibold">Action</th>
+                <th className="px-5 py-3">Order ID</th>
+                <th className="px-5 py-3">Buyer</th>
+                <th className="px-5 py-3">Product</th>
+                <th className="px-5 py-3">Quantity</th>
+                <th className="px-5 py-3">Total</th>
+                <th className="px-5 py-3">Status</th>
+                <th className="px-5 py-3">Actions</th>
               </tr>
             </thead>
+
             <tbody className="divide-y divide-gray-100">
-              {requests.map((request) => (
-                <tr key={request.id}>
+              {orders.slice(0, 5).map((order) => (
+                <tr key={order.id}>
                   <td className="px-5 py-4 font-semibold text-gray-800">
-                    {request.buyer}
+                    {order.id}
                   </td>
-                  <td className="px-5 py-4 text-gray-600">{request.product}</td>
-                  <td className="px-5 py-4 text-gray-600">{request.quantity}</td>
-                  <td className="px-5 py-4 text-gray-600">{request.location}</td>
+
+                  <td className="px-5 py-4 text-gray-700">
+                    {order.buyer}
+                  </td>
+
+                  <td className="px-5 py-4 text-gray-700">
+                    {order.product}
+                  </td>
+
+                  <td className="px-5 py-4 text-gray-700">
+                    {order.quantity}
+                  </td>
+
+                  <td className="px-5 py-4 font-medium text-gray-800">
+                    KSh {Number(order.total).toLocaleString()}
+                  </td>
+
                   <td className="px-5 py-4">
                     <span
                       className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                        statusStyles[request.status] || "bg-gray-100 text-gray-700"
+                        order.status === "Accepted"
+                          ? "bg-green-100 text-green-700"
+                          : order.status === "Declined"
+                          ? "bg-red-100 text-red-700"
+                          : "bg-orange-100 text-orange-700"
                       }`}
                     >
-                      {request.status}
+                      {order.status}
                     </span>
                   </td>
+
                   <td className="px-5 py-4">
-                    {request.status === "New" ? (
+                    {order.status === "Pending" ? (
                       <div className="flex gap-2">
                         <button
                           type="button"
-                          onClick={() => respondToRequest(request.id, "Responded")}
-                          className="rounded-md bg-green-800 px-3 py-2 text-xs font-semibold text-white hover:bg-green-900"
+                          onClick={() =>
+                            updateOrderStatus(
+                              order.id,
+                              "Accepted"
+                            )
+                          }
+                          title="Accept order"
+                          className="rounded-lg bg-green-100 px-3 py-2 text-green-700 hover:bg-green-200"
                         >
-                          Respond
+                          <FontAwesomeIcon icon={faCheck} />
                         </button>
+
                         <button
                           type="button"
-                          onClick={() => respondToRequest(request.id, "Declined")}
-                          className="rounded-md border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+                          onClick={() =>
+                            updateOrderStatus(
+                              order.id,
+                              "Declined"
+                            )
+                          }
+                          title="Decline order"
+                          className="rounded-lg bg-red-100 px-3 py-2 text-red-700 hover:bg-red-200"
                         >
-                          Decline
+                          <FontAwesomeIcon icon={faXmark} />
                         </button>
                       </div>
                     ) : (
-                      <span className="text-xs text-gray-500">{request.status}</span>
+                      <span className="text-xs text-gray-400">
+                        Updated
+                      </span>
                     )}
                   </td>
                 </tr>
               ))}
-              {requests.length === 0 && (
+
+              {orders.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-5 py-8 text-center text-gray-500">
-                    No buyer requests available.
+                  <td
+                    colSpan="7"
+                    className="px-5 py-8 text-center text-gray-500"
+                  >
+                    No orders have been received yet.
                   </td>
                 </tr>
               )}
@@ -586,9 +554,349 @@ function FarmerDashboard() {
         </div>
       </section>
 
-      <footer className="border-t border-gray-200 py-5 text-center text-xs text-gray-400">
-        AgriBridge Farmer Dashboard · Sample data for frontend development
-      </footer>
+      {/* My products */}
+      <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 p-5">
+          <div>
+            <h2 className="font-bold text-gray-900">
+              My Products
+            </h2>
+
+            <p className="mt-1 text-sm text-gray-500">
+              Manage your listed farm products.
+            </p>
+          </div>
+
+          <Link
+            to="/farmer/products/new"
+            className="inline-flex items-center gap-2 rounded-lg bg-[#174832] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#103923]"
+          >
+            <FontAwesomeIcon icon={faPlus} />
+            Add Product
+          </Link>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[650px] text-left text-sm">
+            <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+              <tr>
+                <th className="px-5 py-3">Product</th>
+                <th className="px-5 py-3">Category</th>
+                <th className="px-5 py-3">Price</th>
+                <th className="px-5 py-3">Quantity</th>
+                <th className="px-5 py-3">Status</th>
+                <th className="px-5 py-3">Action</th>
+              </tr>
+            </thead>
+
+            <tbody className="divide-y divide-gray-100">
+              {products.slice(0, 5).map((product) => (
+                <tr key={product.id}>
+                  <td className="px-5 py-4 font-semibold text-gray-800">
+                    {product.name}
+                  </td>
+
+                  <td className="px-5 py-4 text-gray-600">
+                    {product.category}
+                  </td>
+
+                  <td className="px-5 py-4 font-medium text-gray-800">
+                    KSh {Number(product.price).toLocaleString()}
+                  </td>
+
+                  <td className="px-5 py-4 text-gray-600">
+                    {product.quantity} {product.unit}
+                  </td>
+
+                  <td className="px-5 py-4">
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                        product.quantity > 0
+                          ? "bg-green-100 text-green-700"
+                          : "bg-red-100 text-red-700"
+                      }`}
+                    >
+                      {product.quantity > 0
+                        ? "Available"
+                        : "Out of stock"}
+                    </span>
+                  </td>
+
+                  <td className="px-5 py-4">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateProductQuantity(product.id)
+                      }
+                      className="text-sm font-semibold text-[#174832] hover:underline"
+                    >
+                      Update stock
+                    </button>
+                  </td>
+                </tr>
+              ))}
+
+              {products.length === 0 && (
+                <tr>
+                  <td
+                    colSpan="6"
+                    className="px-5 py-8 text-center text-gray-500"
+                  >
+                    You haven't added any products yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="border-t border-gray-100 p-4 text-right">
+          <Link
+            to="/farmer/products"
+            className="text-sm font-semibold text-[#174832] hover:underline"
+          >
+            View all products
+            <FontAwesomeIcon
+              icon={faArrowRight}
+              className="ml-2"
+            />
+          </Link>
+        </div>
+      </section>
+
+      {/* Quick actions */}
+      <section>
+        <div className="mb-4">
+          <h2 className="text-lg font-bold text-gray-900">
+            Quick Actions
+          </h2>
+
+          <p className="text-sm text-gray-500">
+            Quickly access important farmer services.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <Link
+            to="/farmer/verification"
+            className="group rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:border-green-300 hover:shadow-md"
+          >
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-green-100 text-[#174832]">
+              <FontAwesomeIcon
+                icon={faClipboardCheck}
+                className="text-xl"
+              />
+            </div>
+
+            <h3 className="font-bold text-gray-900">
+              Farmer Verification
+            </h3>
+
+            <p className="mt-1 text-sm text-gray-500">
+              Submit and manage your farmer verification.
+            </p>
+
+            <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#174832]">
+              View verification
+              <FontAwesomeIcon
+                icon={faArrowRight}
+                className="transition group-hover:translate-x-1"
+              />
+            </span>
+          </Link>
+
+          <Link
+            to="/farmer/products/new"
+            className="group rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:border-green-300 hover:shadow-md"
+          >
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100 text-blue-700">
+              <FontAwesomeIcon
+                icon={faPlus}
+                className="text-xl"
+              />
+            </div>
+
+            <h3 className="font-bold text-gray-900">
+              Add Product
+            </h3>
+
+            <p className="mt-1 text-sm text-gray-500">
+              List your fresh produce for potential buyers.
+            </p>
+
+            <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#174832]">
+              Add a product
+              <FontAwesomeIcon
+                icon={faArrowRight}
+                className="transition group-hover:translate-x-1"
+              />
+            </span>
+          </Link>
+
+          <Link
+            to="/farmer/requests"
+            className="group rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:border-green-300 hover:shadow-md"
+          >
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-purple-100 text-purple-700">
+              <FontAwesomeIcon
+                icon={faClipboardList}
+                className="text-xl"
+              />
+            </div>
+
+            <h3 className="font-bold text-gray-900">
+              Buyer Requests
+            </h3>
+
+            <p className="mt-1 text-sm text-gray-500">
+              View requests from potential buyers.
+            </p>
+
+            <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#174832]">
+              View requests
+              <FontAwesomeIcon
+                icon={faArrowRight}
+                className="transition group-hover:translate-x-1"
+              />
+            </span>
+          </Link>
+        </div>
+      </section>
+
+      {/* Recent buyer requests */}
+      <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 p-5">
+          <div>
+            <h2 className="font-bold text-gray-900">
+              Recent Buyer Requests
+            </h2>
+
+            <p className="mt-1 text-sm text-gray-500">
+              See what buyers are looking for.
+            </p>
+          </div>
+
+          <Link
+            to="/farmer/requests"
+            className="text-sm font-semibold text-[#174832] hover:underline"
+          >
+            View all
+            <FontAwesomeIcon
+              icon={faArrowRight}
+              className="ml-2"
+            />
+          </Link>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[650px] text-left text-sm">
+            <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+              <tr>
+                <th className="px-5 py-3">Buyer</th>
+                <th className="px-5 py-3">Product</th>
+                <th className="px-5 py-3">Quantity</th>
+                <th className="px-5 py-3">Location</th>
+                <th className="px-5 py-3">Date</th>
+                <th className="px-5 py-3">Status</th>
+                <th className="px-5 py-3">Action</th>
+              </tr>
+            </thead>
+
+            <tbody className="divide-y divide-gray-100">
+              {requests.slice(0, 5).map((request) => (
+                <tr key={request.id}>
+                  <td className="px-5 py-4 font-semibold text-gray-800">
+                    {request.buyer}
+                  </td>
+
+                  <td className="px-5 py-4 text-gray-700">
+                    {request.product}
+                  </td>
+
+                  <td className="px-5 py-4 text-gray-700">
+                    {request.quantity}
+                  </td>
+
+                  <td className="px-5 py-4 text-gray-600">
+                    <FontAwesomeIcon
+                      icon={faLocationDot}
+                      className="mr-1 text-gray-400"
+                    />
+                    {request.location}
+                  </td>
+
+                  <td className="px-5 py-4 text-gray-600">
+                    {request.date}
+                  </td>
+
+                  <td className="px-5 py-4">
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                        request.status === "Accepted"
+                          ? "bg-green-100 text-green-700"
+                          : request.status === "Declined"
+                          ? "bg-red-100 text-red-700"
+                          : "bg-orange-100 text-orange-700"
+                      }`}
+                    >
+                      {request.status}
+                    </span>
+                  </td>
+
+                  <td className="px-5 py-4">
+                    {request.status === "Pending" ? (
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateRequestStatus(
+                              request.id,
+                              "Accepted"
+                            )
+                          }
+                          title="Accept request"
+                          className="rounded-lg bg-green-100 px-3 py-2 text-green-700 hover:bg-green-200"
+                        >
+                          <FontAwesomeIcon icon={faCheck} />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateRequestStatus(
+                              request.id,
+                              "Declined"
+                            )
+                          }
+                          title="Decline request"
+                          className="rounded-lg bg-red-100 px-3 py-2 text-red-700 hover:bg-red-200"
+                        >
+                          <FontAwesomeIcon icon={faXmark} />
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-gray-400">
+                        Updated
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+
+              {requests.length === 0 && (
+                <tr>
+                  <td
+                    colSpan="7"
+                    className="px-5 py-8 text-center text-gray-500"
+                  >
+                    No buyer requests found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
   );
 }

@@ -1,59 +1,155 @@
-import { useState } from "react";
 
-const STORAGE_KEY = "agribridge-farmer-orders";
-const PRODUCTS_KEY = "agribridge-farmer-products"; // saved by My products
+import { useEffect, useState } from "react";
 
-const STATUSES = ["New", "Accepted", "Paid", "Completed", "Declined"];
+const STORAGE_KEY = "agribridge-orders";
+const PRODUCTS_KEY = "agribridge-farmer-products";
 
-const ago = (mins) => new Date(Date.now() - mins * 60000).toISOString();
-
-const buildSample = () => [
-  {
-    id: 1056, buyer: "Amina Hassan", buyerType: "Individual",
-    product: "Spinach", qty: 15, unit: "bunch", price: 35, status: "New",
-    timeline: [{ label: "Order placed", at: ago(9) }],
-  },
-  {
-    id: 1055, buyer: "Mary Atieno", buyerType: "Restaurant",
-    product: "Tomatoes", qty: 20, unit: "kg", price: 120, status: "New",
-    timeline: [{ label: "Order placed", at: ago(65) }],
-  },
-  {
-    id: 1054, buyer: "Fresh Mart Ltd", buyerType: "Retailer",
-    product: "Kale (sukuma wiki)", qty: 150, unit: "bunch", price: 40, status: "Accepted",
-    timeline: [
-      { label: "Order placed", at: ago(60 * 20) },
-      { label: "Accepted by you", at: ago(60 * 19) },
-    ],
-  },
-  {
-    id: 1053, buyer: "Peter Kamau", buyerType: "Individual",
-    product: "Potatoes", qty: 100, unit: "kg", price: 55, status: "Paid", receipt: "SKG7H2LQ9P",
-    timeline: [
-      { label: "Order placed", at: ago(60 * 50) },
-      { label: "Accepted by you", at: ago(60 * 49) },
-      { label: "Buyer paid via M-Pesa", at: ago(60 * 47) },
-    ],
-  },
-  {
-    id: 1052, buyer: "Grace Njeri", buyerType: "Individual",
-    product: "Tomatoes", qty: 10, unit: "kg", price: 120, status: "Completed", receipt: "SKE4D8MZ1R",
-    timeline: [
-      { label: "Order placed", at: ago(60 * 24 * 5) },
-      { label: "Accepted by you", at: ago(60 * 24 * 5 - 30) },
-      { label: "Buyer paid via M-Pesa", at: ago(60 * 24 * 5 - 90) },
-      { label: "Marked as completed", at: ago(60 * 24 * 4) },
-    ],
-  },
-  {
-    id: 1051, buyer: "John Otieno", buyerType: "Hotel",
-    product: "Green maize", qty: 200, unit: "cob", price: 25, status: "Declined",
-    timeline: [
-      { label: "Order placed", at: ago(60 * 24 * 7) },
-      { label: "Declined by you", at: ago(60 * 24 * 7 - 45) },
-    ],
-  },
+const STATUSES = [
+  "New",
+  "Accepted",
+  "Paid",
+  "Completed",
+  "Declined",
 ];
+
+function getCurrentFarmer() {
+  try {
+    return JSON.parse(localStorage.getItem("user")) || {};
+  } catch {
+    return {};
+  }
+}
+
+function loadOrders() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    return Array.isArray(saved) ? saved : [];
+  } catch {
+    return [];
+  }
+}
+
+const readProducts = () => {
+  try {
+    const saved = JSON.parse(
+      localStorage.getItem(PRODUCTS_KEY) || "[]"
+    );
+
+    return Array.isArray(saved) ? saved : [];
+  } catch {
+    return [];
+  }
+};
+
+const getStatus = (order) => {
+  const status = (order.status || "New").toLowerCase();
+
+  if (status === "awaiting farmer" || status === "pending") {
+    return "New";
+  }
+
+  if (status === "accepted") return "Accepted";
+  if (status === "paid") return "Paid";
+  if (status === "completed" || status === "delivered") {
+    return "Completed";
+  }
+  if (status === "declined" || status === "cancelled") {
+    return "Declined";
+  }
+
+  if (status === "processing" || status === "shipped") {
+    return "Accepted";
+  }
+
+  return "New";
+};
+
+const getProductName = (order) => {
+  if (typeof order.product === "object" && order.product !== null) {
+    return order.product.name || order.product.title || "Product";
+  }
+
+  return order.product || order.productName || "Product";
+};
+
+const getQuantity = (order) => {
+  const quantity = order.qty ?? order.quantity ?? 0;
+
+  if (typeof quantity === "string") {
+    return Number.parseFloat(quantity) || 0;
+  }
+
+  return Number(quantity);
+};
+
+const getUnit = (order) => {
+  return order.unit || "unit";
+};
+
+const getPrice = (order) => {
+  if (order.price !== undefined) {
+    return Number(order.price) || 0;
+  }
+
+  if (order.totalAmount !== undefined) {
+    const quantity = getQuantity(order);
+    return quantity > 0
+      ? Number(order.totalAmount) / quantity
+      : 0;
+  }
+
+  if (typeof order.total === "number") {
+    const quantity = getQuantity(order);
+    return quantity > 0 ? order.total / quantity : 0;
+  }
+
+  return 0;
+};
+
+const getBuyerName = (order) => {
+  return (
+    order.buyerName ||
+    order.buyer ||
+    order.customerName ||
+    "Buyer"
+  );
+};
+
+const getFarmerId = (order) => {
+  return order.farmerId || order.sellerId || "";
+};
+
+const getFarmerName = (order) => {
+  return order.farmerName || order.sellerName || "Farmer";
+};
+
+const formatKsh = (amount) =>
+  `KSh ${Number(amount).toLocaleString("en-KE")}`;
+
+const formatTime = (iso) => {
+  if (!iso) return "Not available";
+
+  return new Date(iso).toLocaleString("en-KE", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+};
+
+const getTimeline = (order) => {
+  if (Array.isArray(order.timeline) && order.timeline.length > 0) {
+    return order.timeline;
+  }
+
+  return [
+    {
+      label: "Order placed",
+      at: order.createdAt || new Date().toISOString(),
+    },
+  ];
+};
 
 const statusClass = {
   New: "bg-blue-100 text-blue-700",
@@ -63,156 +159,250 @@ const statusClass = {
   Declined: "bg-red-100 text-red-700",
 };
 
-const formatKsh = (n) => `KSh ${Number(n).toLocaleString("en-KE")}`;
+const mpesaText = (order) => {
+  const status = getStatus(order);
 
-const formatTime = (iso) =>
-  new Date(iso).toLocaleString("en-KE", {
-    day: "numeric",
-    month: "short",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-
-const mpesaText = (o) => {
-  if (o.status === "New") return "Not paid. Waiting for you to accept the order.";
-  if (o.status === "Accepted") return "Awaiting payment from the buyer.";
-  if (o.status === "Declined") return "No payment. The order was declined.";
-  return `Paid. M-Pesa receipt ${o.receipt}.`;
-};
-
-const loadOrders = () => {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : buildSample();
-  } catch {
-    return buildSample();
+  if (status === "New") {
+    return "Not paid. Waiting for you to accept the order.";
   }
-};
 
-const readProducts = () => {
-  try {
-    const saved = JSON.parse(localStorage.getItem(PRODUCTS_KEY) || "[]");
-    return Array.isArray(saved) ? saved : [];
-  } catch {
-    return [];
+  if (status === "Accepted") {
+    return "Awaiting payment from the buyer.";
   }
+
+  if (status === "Declined") {
+    return "No payment. The order was declined.";
+  }
+
+  if (order.receipt || order.paymentReceipt) {
+    return `Paid. M-Pesa receipt ${
+      order.receipt || order.paymentReceipt
+    }.`;
+  }
+
+  return status === "Paid" || status === "Completed"
+    ? "Payment received."
+    : "Payment information unavailable.";
 };
 
 function FarmerOrders() {
-  const [orders, setOrders] = useState(loadOrders);
+  const farmer = getCurrentFarmer();
+
+  const farmerId = farmer.id || farmer.user_id || "farmer-1";
+  const farmerName =
+    farmer.fullName || farmer.name || farmer.username || "Farmer";
+
+  const [orders, setOrders] = useState([]);
   const [filter, setFilter] = useState("All");
   const [selectedId, setSelectedId] = useState(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  const save = (next) => {
-    setOrders(next);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-  };
+  // Only load orders belonging to this farmer
+  useEffect(() => {
+    const loadFarmerOrders = () => {
+      const allOrders = loadOrders();
 
-  const changeStatus = (id, status, label, extra = {}) => {
-    save(
-      orders.map((o) =>
-        o.id === id
-          ? {
-              ...o,
-              ...extra,
-              status,
-              timeline: [...o.timeline, { label, at: new Date().toISOString() }],
-            }
-          : o
+      const farmerOrders = allOrders.filter(
+        (order) =>
+          String(getFarmerId(order)) === String(farmerId)
+      );
+
+      setOrders(farmerOrders);
+
+      setSelectedId((currentId) => {
+        if (
+          currentId &&
+          farmerOrders.some(
+            (order) => String(order.id) === String(currentId)
+          )
+        ) {
+          return currentId;
+        }
+
+        return farmerOrders.length > 0
+          ? farmerOrders[0].id
+          : null;
+      });
+    };
+
+    loadFarmerOrders();
+
+    window.addEventListener("storage", loadFarmerOrders);
+    window.addEventListener("agribridge-update", loadFarmerOrders);
+
+    return () => {
+      window.removeEventListener("storage", loadFarmerOrders);
+      window.removeEventListener("agribridge-update", loadFarmerOrders);
+    };
+  }, [farmerId]);
+
+  const save = (nextOrders) => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify(nextOrders)
+    );
+
+    setOrders(
+      nextOrders.filter(
+        (order) =>
+          String(getFarmerId(order)) === String(farmerId)
       )
     );
-    setSelectedId(id);
+
+    window.dispatchEvent(new Event("agribridge-update"));
+  };
+
+  const changeStatus = (order, status, label, extra = {}) => {
+    const allOrders = loadOrders();
+
+    const updatedOrders = allOrders.map((item) => {
+      if (String(item.id) !== String(order.id)) {
+        return item;
+      }
+
+      return {
+        ...item,
+        ...extra,
+        status,
+        timeline: [
+          ...getTimeline(item),
+          {
+            label,
+            at: new Date().toISOString(),
+          },
+        ],
+        updatedAt: new Date().toISOString(),
+      };
+    });
+
+    save(updatedOrders);
+    setSelectedId(order.id);
   };
 
   const accept = (order) => {
     setError("");
+    setMessage("");
 
-    // Accepting reduces the quantity on the matching product in My products
     const products = readProducts();
+
+    const productName = getProductName(order);
+    const quantity = getQuantity(order);
+
     const match = products.find(
-      (p) => p.name.toLowerCase() === order.product.toLowerCase()
+      (product) =>
+        String(product.name).toLowerCase() ===
+        String(productName).toLowerCase()
     );
 
-    if (match && match.qty < order.qty) {
+    if (match && Number(match.qty) < quantity) {
       setSelectedId(order.id);
+
       setError(
         `Not enough stock. You have ${match.qty} ${match.unit} of ${match.name} left.`
       );
+
       return;
     }
 
+    // Reduce stock if the matching product exists
     if (match) {
-      const newQty = match.qty - order.qty;
-      const nextProducts = products.map((p) =>
-        p.id === match.id
+      const newQty = Number(match.qty) - quantity;
+
+      const nextProducts = products.map((product) =>
+        product.id === match.id
           ? {
-              ...p,
+              ...product,
               qty: newQty,
-              status: newQty === 0 && p.status === "Active" ? "Sold out" : p.status,
+              status:
+                newQty === 0 && product.status === "Active"
+                  ? "Sold out"
+                  : product.status,
             }
-          : p
+          : product
       );
-      localStorage.setItem(PRODUCTS_KEY, JSON.stringify(nextProducts));
+
+      localStorage.setItem(
+        PRODUCTS_KEY,
+        JSON.stringify(nextProducts)
+      );
     }
 
-    changeStatus(order.id, "Accepted", "Accepted by you");
+    changeStatus(
+      order,
+      "Accepted",
+      "Accepted by farmer"
+    );
+
     setMessage(
       match
-        ? `Order #${order.id} accepted. ${order.qty} ${order.unit} was taken off your ${match.name} stock.`
+        ? `Order #${order.id} accepted. ${quantity} ${getUnit(order)} was deducted from your stock.`
         : `Order #${order.id} accepted. The buyer can now pay.`
     );
   };
 
   const decline = (order) => {
     setError("");
-    changeStatus(order.id, "Declined", "Declined by you");
+    setMessage("");
+
+    changeStatus(
+      order,
+      "Declined",
+      "Declined by farmer"
+    );
+
     setMessage(`Order #${order.id} was declined.`);
   };
 
   const complete = (order) => {
     setError("");
-    changeStatus(order.id, "Completed", "Marked as completed");
+    setMessage("");
+
+    changeStatus(
+      order,
+      "Completed",
+      "Marked as completed"
+    );
+
     setMessage(`Order #${order.id} is complete.`);
   };
 
-  // Testing only: pretend the buyer paid with M-Pesa
-  const simulatePayment = (order) => {
-    const receipt =
-      "SK" + Math.random().toString(36).slice(2, 10).toUpperCase();
-    changeStatus(order.id, "Paid", "Buyer paid via M-Pesa", { receipt });
-    setMessage(`Payment received for order #${order.id}.`);
-  };
-
-  const resetSample = () => {
-    save(buildSample());
-    setSelectedId(null);
-    setMessage("");
-    setError("");
-  };
-
   const counts = STATUSES.reduce(
-    (acc, s) => ({ ...acc, [s]: orders.filter((o) => o.status === s).length }),
+    (acc, status) => ({
+      ...acc,
+      [status]: orders.filter(
+        (order) => getStatus(order) === status
+      ).length,
+    }),
     {}
   );
 
   const visible =
-    filter === "All" ? orders : orders.filter((o) => o.status === filter);
+    filter === "All"
+      ? orders
+      : orders.filter(
+          (order) => getStatus(order) === filter
+        );
 
-  const selected = orders.find((o) => o.id === selectedId);
+  const selected = orders.find(
+    (order) => String(order.id) === String(selectedId)
+  );
 
   const linkButton =
     "text-sm font-medium text-gray-700 underline hover:text-[#168343]";
 
-  const sectionClass = "rounded-xl border border-gray-200 bg-white p-5 shadow-sm";
+  const sectionClass =
+    "rounded-xl border border-gray-200 bg-white p-5 shadow-sm";
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Incoming orders</h1>
+        <h1 className="text-2xl font-bold text-gray-900">
+          Incoming orders
+        </h1>
+
         <p className="mt-1 text-sm text-gray-500">
-          Accept or decline orders from buyers.
+          View and manage orders placed for your products.
         </p>
       </div>
 
@@ -235,9 +425,12 @@ function FarmerOrders() {
       )}
 
       <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[1.5fr_1fr]">
+
         {/* Orders list */}
         <section className={sectionClass}>
-          <h2 className="mb-4 text-lg font-bold text-gray-900">Orders</h2>
+          <h2 className="mb-4 text-lg font-bold text-gray-900">
+            Orders
+          </h2>
 
           <select
             value={filter}
@@ -245,10 +438,13 @@ function FarmerOrders() {
             aria-label="Filter orders by status"
             className="mb-5 w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-gray-800 outline-none transition focus:border-[#168343] focus:ring-2 focus:ring-green-100"
           >
-            <option value="All">Filter: All ({orders.length})</option>
-            {STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s} ({counts[s]})
+            <option value="All">
+              Filter: All ({orders.length})
+            </option>
+
+            {STATUSES.map((status) => (
+              <option key={status} value={status}>
+                {status} ({counts[status]})
               </option>
             ))}
           </select>
@@ -256,7 +452,7 @@ function FarmerOrders() {
           {visible.length === 0 ? (
             <p className="text-sm text-gray-500">
               {orders.length === 0
-                ? "No orders yet. New orders from buyers appear here."
+                ? "No orders yet. New orders for your products will appear here."
                 : `No ${filter.toLowerCase()} orders.`}
             </p>
           ) : (
@@ -274,139 +470,167 @@ function FarmerOrders() {
                 </thead>
 
                 <tbody>
-                  {visible.map((o) => (
-                    <tr
-                      key={o.id}
-                      className={`border-b border-gray-100 ${
-                        o.id === selectedId ? "bg-green-50" : ""
-                      }`}
-                    >
-                      <td className="px-2 py-4">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedId(o.id);
-                            setError("");
-                          }}
-                          className="text-left font-semibold text-gray-900 hover:underline"
-                        >
-                          {o.buyer}
-                        </button>
-                      </td>
-                      <td className="px-2 py-4 text-gray-700">{o.product}</td>
-                      <td className="px-2 py-4 text-gray-700">
-                        {o.qty} {o.unit}
-                      </td>
-                      <td className="px-2 py-4 font-medium text-gray-900">
-                        {formatKsh(o.qty * o.price)}
-                      </td>
-                      <td className="px-2 py-4">
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-semibold ${statusClass[o.status]}`}
-                        >
-                          {o.status}
-                        </span>
-                      </td>
-                      <td className="whitespace-nowrap px-2 py-4">
-                        {o.status === "New" ? (
-                          <span className="flex gap-2">
-                            <button type="button" onClick={() => accept(o)} className={linkButton}>
-                              Accept
-                            </button>
-                            <span className="text-gray-400">/</span>
-                            <button type="button" onClick={() => decline(o)} className={linkButton}>
-                              Decline
-                            </button>
-                          </span>
-                        ) : (
+                  {visible.map((order) => {
+                    const status = getStatus(order);
+                    const quantity = getQuantity(order);
+                    const total = quantity * getPrice(order);
+
+                    return (
+                      <tr
+                        key={order.id}
+                        className={`border-b border-gray-100 ${
+                          String(order.id) === String(selectedId)
+                            ? "bg-green-50"
+                            : ""
+                        }`}
+                      >
+                        <td className="px-2 py-4">
                           <button
                             type="button"
                             onClick={() => {
-                              setSelectedId(o.id);
+                              setSelectedId(order.id);
                               setError("");
                             }}
-                            className={linkButton}
+                            className="text-left font-semibold text-gray-900 hover:underline"
                           >
-                            View
+                            {getBuyerName(order)}
                           </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+
+                        <td className="px-2 py-4 text-gray-700">
+                          {getProductName(order)}
+                        </td>
+
+                        <td className="px-2 py-4 text-gray-700">
+                          {quantity} {getUnit(order)}
+                        </td>
+
+                        <td className="px-2 py-4 font-medium text-gray-900">
+                          {formatKsh(total)}
+                        </td>
+
+                        <td className="px-2 py-4">
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-semibold ${statusClass[status]}`}
+                          >
+                            {status}
+                          </span>
+                        </td>
+
+                        <td className="whitespace-nowrap px-2 py-4">
+                          {status === "New" ? (
+                            <span className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => accept(order)}
+                                className={linkButton}
+                              >
+                                Accept
+                              </button>
+
+                              <span className="text-gray-400">/</span>
+
+                              <button
+                                type="button"
+                                onClick={() => decline(order)}
+                                className={linkButton}
+                              >
+                                Decline
+                              </button>
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedId(order.id);
+                                setError("");
+                              }}
+                              className={linkButton}
+                            >
+                              View
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           )}
-
-          <button
-            type="button"
-            onClick={resetSample}
-            className="mt-5 text-xs text-gray-500 underline hover:text-[#168343]"
-          >
-            Reset sample orders
-          </button>
         </section>
 
         {/* Order details */}
         <section className={`${sectionClass} xl:sticky xl:top-4`}>
-          <h2 className="mb-3 text-lg font-bold text-gray-900">Order details</h2>
+          <h2 className="mb-3 text-lg font-bold text-gray-900">
+            Order details
+          </h2>
 
           {!selected ? (
             <p className="text-sm text-gray-500">
-              Select an order to see the buyer, product, timeline and payment
-              status.
+              Select an order to see the buyer, product, timeline and payment status.
             </p>
           ) : (
             <div className="space-y-4">
               <dl className="grid grid-cols-[120px_1fr] gap-y-2 text-sm">
+
                 <dt className="text-gray-500">Order</dt>
-                <dd className="font-semibold text-gray-900">#{selected.id}</dd>
+                <dd className="font-semibold text-gray-900">
+                  #{selected.id}
+                </dd>
 
                 <dt className="text-gray-500">Buyer</dt>
                 <dd className="text-gray-900">
-                  {selected.buyer}{" "}
-                  <span className="text-xs text-gray-500">({selected.buyerType})</span>
+                  {getBuyerName(selected)}
                 </dd>
 
                 <dt className="text-gray-500">Product</dt>
-                <dd className="text-gray-900">{selected.product}</dd>
+                <dd className="text-gray-900">
+                  {getProductName(selected)}
+                </dd>
 
                 <dt className="text-gray-500">Quantity</dt>
                 <dd className="text-gray-900">
-                  {selected.qty} {selected.unit}
+                  {getQuantity(selected)} {getUnit(selected)}
                 </dd>
 
                 <dt className="text-gray-500">Price</dt>
                 <dd className="text-gray-900">
-                  {formatKsh(selected.price)} / {selected.unit}
+                  {formatKsh(getPrice(selected))} / {getUnit(selected)}
                 </dd>
 
                 <dt className="text-gray-500">Total</dt>
                 <dd className="font-semibold text-gray-900">
-                  {formatKsh(selected.qty * selected.price)}
+                  {formatKsh(
+                    getQuantity(selected) * getPrice(selected)
+                  )}
                 </dd>
 
                 <dt className="text-gray-500">M-Pesa payment</dt>
-                <dd className="text-gray-900">{mpesaText(selected)}</dd>
+                <dd className="text-gray-900">
+                  {mpesaText(selected)}
+                </dd>
               </dl>
 
               <div>
                 <h3 className="mb-2 text-sm font-semibold text-gray-900">
                   Order timeline
                 </h3>
+
                 <ol className="space-y-2 border-l-2 border-green-200 pl-4">
-                  {selected.timeline.map((t, index) => (
+                  {getTimeline(selected).map((item, index) => (
                     <li key={index} className="text-sm text-gray-700">
-                      {t.label}
+                      {item.label}
+
                       <span className="block text-xs text-gray-500">
-                        {formatTime(t.at)}
+                        {formatTime(item.at)}
                       </span>
                     </li>
                   ))}
                 </ol>
               </div>
 
-              {selected.status === "New" && (
+              {getStatus(selected) === "New" && (
                 <div>
                   <div className="flex flex-wrap gap-3">
                     <button
@@ -416,6 +640,7 @@ function FarmerOrders() {
                     >
                       Accept order
                     </button>
+
                     <button
                       type="button"
                       onClick={() => decline(selected)}
@@ -424,28 +649,22 @@ function FarmerOrders() {
                       Decline order
                     </button>
                   </div>
+
                   <p className="mt-3 text-xs text-gray-500">
                     Accepting reduces your available quantity.
                   </p>
                 </div>
               )}
 
-              {selected.status === "Accepted" && (
+              {getStatus(selected) === "Accepted" && (
                 <div className="rounded-lg border border-dashed border-gray-300 p-3">
                   <p className="text-sm text-gray-600">
                     Waiting for the buyer to pay with M-Pesa.
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => simulatePayment(selected)}
-                    className="mt-2 text-xs font-medium text-gray-500 underline hover:text-[#168343]"
-                  >
-                    Testing only: simulate the buyer's payment
-                  </button>
                 </div>
               )}
 
-              {selected.status === "Paid" && (
+              {getStatus(selected) === "Paid" && (
                 <button
                   type="button"
                   onClick={() => complete(selected)}

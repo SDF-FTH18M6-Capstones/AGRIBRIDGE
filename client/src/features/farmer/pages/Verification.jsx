@@ -1,51 +1,17 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 const STORAGE_KEY = "agribridge-farmer-verification";
-const PROFILE_KEY = "agribridge-farmer-profile"; // saved by My farm
+const PROFILE_KEY = "agribridge-farmer-profile";
 
-const steps = [
-  "Documents submitted",
-  "Pending admin review",
-  "Field visit scheduled",
-  "Field verification",
-  "Approved",
-];
+// localStorage holds about 5 MB per site. Documents are stored as base64 text,
+// so we keep all of them together under this budget (in characters).
+const MAX_TOTAL_CHARS = 3_000_000;
+const MAX_PDF_BYTES = 1024 * 1024; // PDFs can't be compressed in the browser
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // raw photo limit, shrunk before saving
+const TARGET_IMAGE_CHARS = 400_000; // aim for roughly 300 KB per image
 
-// How many tracker steps are complete for each status
-const stepsReached = {
-  not_submitted: 0,
-  rejected: 0,
-  pending_review: 2,
-  field_visit_scheduled: 3,
-  field_verified: 4,
-  approved: 5,
-};
-
-const statusText = {
-  not_submitted: "Not submitted",
-  rejected: "Documents rejected (corrections needed)",
-  pending_review: "Pending admin review",
-  field_visit_scheduled: "Field visit scheduled",
-  field_verified: "Field verification complete",
-  approved: "Approved",
-};
-
-const nextStatus = {
-  pending_review: "field_visit_scheduled",
-  field_visit_scheduled: "field_verified",
-  field_verified: "approved",
-};
-
-const documents = [
-  { key: "nationalId", label: "National ID", hint: "Front and back", required: true },
-  { key: "titleDeed", label: "Land title deed", hint: "Not everyone owns land" },
-  { key: "lease", label: "Land lease agreement", hint: "If you lease" },
-  { key: "ownership", label: "Farm ownership or management agreement" },
-  { key: "contract", label: "Contract farming agreement" },
-  { key: "coop", label: "Cooperative membership evidence" },
-];
-
-const emptyForm = {
+const initialForm = {
   fullName: "",
   nationalId: "",
   phone: "",
@@ -56,529 +22,701 @@ const emptyForm = {
   activities: "",
   crops: "",
   farmSize: "",
-  relationship: "Owner",
+  relationship: "",
 };
 
-const loadSaved = () => {
+const documentsList = [
+  { key: "nationalId", label: "National ID", required: true },
+  { key: "titleDeed", label: "Title deed", required: false },
+  { key: "lease", label: "Lease agreement", required: false },
+  { key: "ownership", label: "Proof of ownership", required: false },
+  { key: "contract", label: "Farm contract", required: false },
+  { key: "coop", label: "Cooperative membership", required: false },
+];
+
+const statusSteps = [
+  { key: "pending_review", label: "Submitted" },
+  { key: "field_visit_scheduled", label: "Field visit" },
+  { key: "field_verified", label: "Field verified" },
+  { key: "approved", label: "Approved" },
+];
+
+const statusLabels = {
+  not_submitted: "Not submitted",
+  pending_review: "Pending review",
+  field_visit_scheduled: "Field visit scheduled",
+  field_verified: "Field verified",
+  more_information_requested: "More information requested",
+  approved: "Approved",
+  rejected: "Rejected",
+};
+
+function readSavedApplication() {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) return JSON.parse(saved);
-
-    // First visit: prefill from the My farm profile if there is one
-    const profile = JSON.parse(localStorage.getItem(PROFILE_KEY) || "null");
-    return {
-      status: "not_submitted",
-      docs: {},
-      form: profile
-        ? {
-            ...emptyForm,
-            fullName: profile.fullName || "",
-            phone: profile.phone || "",
-            county: profile.county || "",
-            farmName: profile.farmName || "",
-            farmLocation: profile.location || "",
-            crops: profile.crops || "",
-            farmSize: profile.farmSize || "",
-          }
-        : emptyForm,
-    };
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
   } catch {
-    return { status: "not_submitted", docs: {}, form: emptyForm };
+    return null;
   }
-};
+}
 
-function FarmerVerification() {
-  const [saved] = useState(loadSaved);
-  const [status, setStatus] = useState(saved.status);
-  const [form, setForm] = useState(saved.form);
-  const [docs, setDocs] = useState(saved.docs); // { nationalId: "file-name.pdf" }
-  const [consent, setConsent] = useState(false);
-  const [error, setError] = useState("");
+function readSavedProfile() {
+  try {
+    return JSON.parse(localStorage.getItem(PROFILE_KEY) || "null");
+  } catch {
+    return null;
+  }
+}
+
+function totalChars(docs) {
+  return Object.values(docs).reduce(
+    (sum, doc) => sum + (doc?.dataUrl?.length || 0),
+    0
+  );
+}
+
+function formatKB(chars) {
+  return `${Math.round((chars * 0.75) / 1024)} KB`;
+}
+
+function isQuotaError(err) {
+  return (
+    err &&
+    (err.name === "QuotaExceededError" ||
+      err.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+      err.code === 22 ||
+      err.code === 1014)
+  );
+}
+
+// Shrinks a photo/scan to a JPEG so it fits in localStorage.
+function compressImage(file) {
+  const attempts = [
+    { maxDim: 1400, quality: 0.75 },
+    { maxDim: 1100, quality: 0.6 },
+    { maxDim: 800, quality: 0.5 },
+  ];
+
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+
+    img.onload = () => {
+      try {
+        let result = "";
+
+        for (const { maxDim, quality } of attempts) {
+          const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+
+          const ctx = canvas.getContext("2d");
+          ctx.fillStyle = "#ffffff"; // PNG transparency becomes white
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+          result = canvas.toDataURL("image/jpeg", quality);
+          if (result.length <= TARGET_IMAGE_CHARS) break;
+        }
+
+        URL.revokeObjectURL(url);
+        resolve(result);
+      } catch (err) {
+        URL.revokeObjectURL(url);
+        reject(err);
+      }
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Image could not be read"));
+    };
+
+    img.src = url;
+  });
+}
+
+function readAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("File could not be read"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function Verification() {
+  const navigate = useNavigate();
+  const [form, setForm] = useState(initialForm);
+  const [documents, setDocuments] = useState({});
+  const [application, setApplication] = useState(readSavedApplication);
   const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [uploading, setUploading] = useState(false);
 
-  const editable = status === "not_submitted" || status === "rejected";
-  const reached = stepsReached[status] ?? 0;
+  useEffect(() => {
+    const profile = readSavedProfile();
 
-  const persist = (nextStatus, nextForm = form, nextDocs = docs) => {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ status: nextStatus, form: nextForm, docs: nextDocs })
-    );
-  };
+    if (profile) {
+      const [countyPart, ...subCountyParts] = (profile.countyAndSubCounty || "")
+        .split(",")
+        .map((s) => s.trim());
+
+      setForm((previous) => ({
+        ...previous,
+        fullName: profile.fullName || previous.fullName,
+        phone: profile.phone || previous.phone,
+        county: profile.county || countyPart || previous.county,
+        subCounty: profile.subCounty || subCountyParts.join(", ") || previous.subCounty,
+        farmName: profile.farmName || previous.farmName,
+        farmLocation: profile.location || profile.farmLocation || previous.farmLocation,
+        crops: profile.crops || previous.crops,
+        farmSize: profile.farmSize || previous.farmSize,
+      }));
+    }
+
+    const saved = readSavedApplication();
+
+    if (saved?.form) {
+      setForm((previous) => ({
+        ...previous,
+        ...saved.form,
+      }));
+
+      setDocuments(saved.docs || {});
+    }
+
+    const refreshApplication = () => {
+      const latest = readSavedApplication();
+      setApplication(latest);
+
+      if (latest?.form) {
+        setForm((previous) => ({
+          ...previous,
+          ...latest.form,
+        }));
+        setDocuments(latest.docs || {});
+      }
+    };
+
+    window.addEventListener("storage", refreshApplication);
+
+    return () => {
+      window.removeEventListener("storage", refreshApplication);
+    };
+  }, []);
 
   const handleChange = (event) => {
-    setForm({ ...form, [event.target.name]: event.target.value });
-    setError("");
+    const { name, value } = event.target;
+
+    setForm((previous) => ({
+      ...previous,
+      [name]: value,
+    }));
   };
 
-  const handleFile = (key, event) => {
-    const file = event.target.files[0];
+  const handleFileChange = async (event, key) => {
+    const input = event.target;
+    const file = input.files?.[0];
+
     if (!file) return;
 
-    // Sample version stores only the file name.
-    // When your API is ready, send the File itself with FormData.
-    setDocs({ ...docs, [key]: file.name });
+    const isPdf = file.type === "application/pdf";
+    const isImage = file.type === "image/png" || file.type === "image/jpeg";
+
+    if (!isPdf && !isImage) {
+      setError("Please upload a PDF, PNG, or JPG document.");
+      input.value = "";
+      return;
+    }
+
+    if (isPdf && file.size > MAX_PDF_BYTES) {
+      setError(
+        "This PDF is larger than 1 MB. Compress it (for example at ilovepdf.com) or upload a photo of the document instead."
+      );
+      input.value = "";
+      return;
+    }
+
+    if (isImage && file.size > MAX_IMAGE_BYTES) {
+      setError("This image is larger than 10 MB. Please choose a smaller one.");
+      input.value = "";
+      return;
+    }
+
     setError("");
+    setMessage("");
+    setUploading(true);
+
+    try {
+      // Photos are shrunk automatically; PDFs are stored as they are.
+      const dataUrl = isImage
+        ? await compressImage(file)
+        : await readAsDataUrl(file);
+
+      // Count everything except the file being replaced in this slot.
+      const { [key]: _replaced, ...others } = documents;
+      const newTotal = totalChars(others) + dataUrl.length;
+
+      if (newTotal > MAX_TOTAL_CHARS) {
+        setError(
+          `Your documents add up to ${formatKB(newTotal)}, which is over the ${formatKB(
+            MAX_TOTAL_CHARS
+          )} limit. Remove a document or upload a smaller one.`
+        );
+        input.value = "";
+        return;
+      }
+
+      setDocuments((previous) => ({
+        ...previous,
+        [key]: {
+          name: file.name,
+          type: isImage ? "image/jpeg" : file.type,
+          size: Math.round(dataUrl.length * 0.75),
+          dataUrl,
+        },
+      }));
+    } catch (err) {
+      console.error("Document upload failed:", err);
+      setError(`Unable to read ${file.name}. Please try again.`);
+      input.value = "";
+    } finally {
+      setUploading(false);
+    }
   };
 
-  const removeFile = (key) => {
-    const { [key]: removed, ...rest } = docs;
-    setDocs(rest);
+  const removeDocument = (key) => {
+    setDocuments((previous) => {
+      const { [key]: _removed, ...rest } = previous;
+      return rest;
+    });
   };
 
   const handleSubmit = (event) => {
     event.preventDefault();
-
-    if (!docs.nationalId) {
-      setError("Upload your National ID to continue.");
-      return;
-    }
-
-    if (!consent) {
-      setError("Confirm the consent box to submit.");
-      return;
-    }
-
-    setStatus("pending_review");
-    persist("pending_review");
     setError("");
-    setMessage(
-      "Your documents have been submitted. An admin will review them shortly."
+    setMessage("");
+
+    if (uploading) {
+      setError("Please wait for your documents to finish uploading.");
+      return;
+    }
+
+    const requiredFields = [
+      "fullName",
+      "nationalId",
+      "phone",
+      "county",
+      "subCounty",
+      "farmName",
+      "farmLocation",
+      "activities",
+      "crops",
+      "farmSize",
+      "relationship",
+    ];
+
+    const missingField = requiredFields.some(
+      (field) => !String(form[field] || "").trim()
     );
-    window.scrollTo({ top: 0, behavior: "smooth" });
+
+    if (missingField) {
+      setError("Please complete all required fields.");
+      return;
+    }
+
+    if (!documents.nationalId?.dataUrl) {
+      setError("Please upload your National ID.");
+      return;
+    }
+
+    const savedApplication = {
+      status: "pending_review",
+      form,
+      docs: documents,
+      submittedAt: new Date().toISOString(),
+      reviewReason: "",
+      officer: "Not assigned",
+    };
+
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(savedApplication));
+    } catch (saveError) {
+      console.error("Unable to save verification application:", saveError);
+
+      setError(
+        isQuotaError(saveError)
+          ? `Browser storage is full. Your documents total ${formatKB(
+              totalChars(documents)
+            )}. Remove optional documents or upload smaller files, then submit again.`
+          : "Your application could not be saved. Please try again."
+      );
+      return;
+    }
+
+    // The profile sync is small and optional, so a failure here must not
+    // cancel an application that has already been saved.
+    try {
+      const existingProfile = readSavedProfile() || {};
+      localStorage.setItem(
+        PROFILE_KEY,
+        JSON.stringify({
+          ...existingProfile,
+          fullName: form.fullName,
+          phone: form.phone,
+          countyAndSubCounty: `${form.county}, ${form.subCounty}`,
+          farmName: form.farmName,
+          location: form.farmLocation,
+          crops: form.crops,
+          farmSize: form.farmSize,
+        })
+      );
+    } catch (profileError) {
+      console.warn("Unable to sync MyFarm profile:", profileError);
+    }
+
+    window.dispatchEvent(new Event("storage"));
+    setApplication(savedApplication);
+    setMessage(
+      "Your verification application has been submitted successfully. Redirecting to Admin..."
+    );
+
+    setTimeout(() => {
+      navigate("/admin/verification");
+    }, 600);
   };
 
-  // Testing controls (sample only): pretend the admin took an action
-  const moveStatus = (next) => {
-    setStatus(next);
-    persist(next);
-    setMessage("");
-  };
+  const currentStatus = application?.status || "not_submitted";
 
-  const resetAll = () => {
-    localStorage.removeItem(STORAGE_KEY);
-    setStatus("not_submitted");
-    setForm(emptyForm);
-    setDocs({});
-    setConsent(false);
-    setError("");
-    setMessage("");
-  };
+  const currentStep = statusSteps.findIndex(
+    (step) => step.key === currentStatus
+  );
 
-  const inputClass =
-    "w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-[#168343] focus:ring-2 focus:ring-green-100 disabled:bg-gray-50 disabled:text-gray-500";
-
-  const labelClass = "mb-2 block text-sm font-medium text-gray-700";
-
-  const sectionClass =
-    "rounded-xl border border-gray-200 bg-white p-5 shadow-sm";
+  const usedChars = totalChars(documents);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Farmer verification</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Get verified to show the Verified Farmer badge and list products.
-        </p>
-      </div>
-
-      {message && (
-        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
-          {message}
+    <div className="min-h-screen bg-[#f4f7f2] px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-5xl space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
+            Farmer Verification
+          </h1>
+          <p className="mt-2 text-sm text-gray-600">
+            Complete your farm information and upload the required documents
+            to verify your farmer account.
+          </p>
         </div>
-      )}
 
-      {status === "rejected" && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-          Your documents were rejected. Correct the details below and submit
-          again.
-        </div>
-      )}
-
-      {/* Status tracker */}
-      <section className={sectionClass}>
-        <h2 className="mb-4 text-lg font-bold text-gray-900">Status tracker</h2>
-
-        <ol className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          {steps.map((step, index) => (
-            <li
-              key={step}
-              className={`rounded-lg border px-4 py-3 text-sm ${
-                index < reached
-                  ? "border-[#168343] bg-green-50 font-semibold text-[#174832]"
-                  : "border-gray-300 text-gray-500"
-              }`}
-            >
-              {index + 1}. {step}
-            </li>
-          ))}
-        </ol>
-
-        <p className="mt-3 text-xs text-gray-500">
-          Current status: {statusText[status]}
-        </p>
-      </section>
-
-      <form onSubmit={handleSubmit}>
-        <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[1fr_320px]">
-          <div className="space-y-5">
-            <fieldset disabled={!editable} className="min-w-0 space-y-5 border-0 p-0">
-              {/* 1. Personal identification */}
-              <section className={sectionClass}>
-                <h2 className="mb-5 text-lg font-bold text-gray-900">
-                  1. Personal identification
+        {application && (
+          <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="font-semibold text-gray-900">
+                  Verification status
                 </h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Application submitted:{" "}
+                  {application.submittedAt
+                    ? new Date(application.submittedAt).toLocaleDateString()
+                    : "Date unavailable"}
+                </p>
+              </div>
 
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div>
-                    <label htmlFor="fullName" className={labelClass}>
-                      Full legal name *
-                    </label>
-                    <input
-                      id="fullName"
-                      name="fullName"
-                      value={form.fullName}
-                      onChange={handleChange}
-                      className={inputClass}
-                      required
-                    />
-                  </div>
+              <span className="rounded-full bg-green-100 px-4 py-2 text-sm font-semibold text-green-800">
+                {statusLabels[currentStatus] || currentStatus}
+              </span>
+            </div>
 
-                  <div>
-                    <label htmlFor="nationalIdNumber" className={labelClass}>
-                      National ID number *
-                    </label>
-                    <input
-                      id="nationalIdNumber"
-                      name="nationalId"
-                      value={form.nationalId}
-                      onChange={handleChange}
-                      className={inputClass}
-                      required
-                    />
-                  </div>
-                </div>
+            {currentStatus === "rejected" ? (
+              <div className="mt-5 rounded-lg border border-red-200 bg-red-50 p-4">
+                <p className="font-semibold text-red-800">
+                  Your application needs attention.
+                </p>
+                <p className="mt-1 text-sm text-red-700">
+                  {application.reviewReason ||
+                    "Please contact the administrator for more information."}
+                </p>
+              </div>
+            ) : (
+              <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+                {statusSteps.map((step, index) => {
+                  const completed =
+                    currentStep >= 0 && index <= currentStep;
 
-                <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-                  <div>
-                    <label htmlFor="phone" className={labelClass}>
-                      Phone number *
-                    </label>
-                    <input
-                      id="phone"
-                      name="phone"
-                      type="tel"
-                      value={form.phone}
-                      onChange={handleChange}
-                      className={inputClass}
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="county" className={labelClass}>
-                      County *
-                    </label>
-                    <input
-                      id="county"
-                      name="county"
-                      value={form.county}
-                      onChange={handleChange}
-                      className={inputClass}
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="subCounty" className={labelClass}>
-                      Sub-county *
-                    </label>
-                    <input
-                      id="subCounty"
-                      name="subCounty"
-                      value={form.subCounty}
-                      onChange={handleChange}
-                      className={inputClass}
-                      required
-                    />
-                  </div>
-                </div>
-              </section>
-
-              {/* 2. Farming information */}
-              <section className={sectionClass}>
-                <h2 className="mb-5 text-lg font-bold text-gray-900">
-                  2. Farming information
-                </h2>
-
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div>
-                    <label htmlFor="farmName" className={labelClass}>
-                      Farm name (if applicable)
-                    </label>
-                    <input
-                      id="farmName"
-                      name="farmName"
-                      value={form.farmName}
-                      onChange={handleChange}
-                      className={inputClass}
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="farmLocation" className={labelClass}>
-                      Farm location *
-                    </label>
-                    <input
-                      id="farmLocation"
-                      name="farmLocation"
-                      value={form.farmLocation}
-                      onChange={handleChange}
-                      className={inputClass}
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-                  <div>
-                    <label htmlFor="activities" className={labelClass}>
-                      Main agricultural activities *
-                    </label>
-                    <input
-                      id="activities"
-                      name="activities"
-                      value={form.activities}
-                      onChange={handleChange}
-                      className={inputClass}
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="crops" className={labelClass}>
-                      Crops or livestock produced *
-                    </label>
-                    <input
-                      id="crops"
-                      name="crops"
-                      value={form.crops}
-                      onChange={handleChange}
-                      className={inputClass}
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="farmSize" className={labelClass}>
-                      Approximate farm size
-                    </label>
-                    <input
-                      id="farmSize"
-                      name="farmSize"
-                      value={form.farmSize}
-                      onChange={handleChange}
-                      className={inputClass}
-                    />
-                  </div>
-                </div>
-
-                <div className="mt-4">
-                  <label htmlFor="relationship" className={labelClass}>
-                    Your relationship to the farm *
-                  </label>
-                  <select
-                    id="relationship"
-                    name="relationship"
-                    value={form.relationship}
-                    onChange={handleChange}
-                    className={inputClass}
-                  >
-                    <option>Owner</option>
-                    <option>Leasing</option>
-                    <option>Family land</option>
-                    <option>Managing for someone</option>
-                    <option>Contract farming</option>
-                  </select>
-                </div>
-              </section>
-
-              {/* 3. Supporting documents */}
-              <section className={sectionClass}>
-                <h2 className="mb-2 text-lg font-bold text-gray-900">
-                  3. Supporting documents
-                </h2>
-
-                <div>
-                  {documents.map((doc) => (
-                    <div
-                      key={doc.key}
-                      className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 py-4 last:border-0"
-                    >
-                      <div>
-                        <p className="text-sm font-semibold text-gray-900">
-                          {doc.label} ({doc.required ? "required" : "optional"})
-                        </p>
-
-                        {doc.hint && (
-                          <p className="text-xs text-gray-500">{doc.hint}</p>
-                        )}
-
-                        {docs[doc.key] && (
-                          <p className="mt-1 text-xs font-medium text-[#168343]">
-                            Selected: {docs[doc.key]}
-                            {editable && (
-                              <button
-                                type="button"
-                                onClick={() => removeFile(doc.key)}
-                                className="ml-2 text-gray-500 underline hover:text-red-600"
-                              >
-                                Remove
-                              </button>
-                            )}
-                          </p>
-                        )}
-                      </div>
-
-                      <label
-                        className={`whitespace-nowrap rounded-lg border border-[#174832] px-4 py-2 text-sm font-semibold text-[#174832] transition ${
-                          editable
-                            ? "cursor-pointer hover:bg-green-50"
-                            : "cursor-not-allowed opacity-50"
+                  return (
+                    <div key={step.key} className="flex items-center gap-2">
+                      <div
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
+                          completed
+                            ? "bg-green-800 text-white"
+                            : "bg-gray-200 text-gray-500"
                         }`}
                       >
-                        {docs[doc.key] ? "Replace file" : "Upload file"}
-                        <input
-                          type="file"
-                          accept=".pdf,.jpg,.jpeg,.png"
-                          onChange={(event) => handleFile(doc.key, event)}
-                          className="hidden"
-                        />
-                      </label>
+                        {completed ? "✓" : index + 1}
+                      </div>
+                      <span className="text-xs font-medium text-gray-700">
+                        {step.label}
+                      </span>
                     </div>
-                  ))}
-                </div>
-              </section>
-            </fieldset>
-
-            {/* Consent and submit */}
-            {editable ? (
-              <section className={sectionClass}>
-                <label className="flex items-start gap-3 text-sm text-gray-700">
-                  <input
-                    type="checkbox"
-                    checked={consent}
-                    onChange={(event) => {
-                      setConsent(event.target.checked);
-                      setError("");
-                    }}
-                    className="mt-1 h-4 w-4 accent-[#168343]"
-                  />
-                  I confirm the information is true and I consent to
-                  verification, including a possible farm visit by an AgriBridge
-                  field officer.
-                </label>
-
-                {error && (
-                  <p role="alert" className="mt-3 text-sm font-medium text-red-600">
-                    {error}
-                  </p>
-                )}
-
-                <button
-                  type="submit"
-                  className="mt-5 rounded-lg bg-[#174832] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#103724]"
-                >
-                  Submit for verification
-                </button>
-              </section>
-            ) : (
-              <section className={sectionClass}>
-                <p className="text-sm text-gray-700">
-                  {status === "approved"
-                    ? "Your farm is verified. You can now list products."
-                    : "Your application is being reviewed. You cannot edit it while it is in review."}
-                </p>
-              </section>
+                  );
+                })}
+              </div>
             )}
+
+            {application.reviewReason && currentStatus !== "rejected" && (
+              <div className="mt-4 rounded-lg bg-orange-50 p-3 text-sm text-orange-800">
+                <strong>Admin feedback:</strong> {application.reviewReason}
+              </div>
+            )}
+
+            {application.officer &&
+              application.officer !== "Not assigned" && (
+                <p className="mt-4 text-sm text-gray-600">
+                  Assigned field officer: {application.officer}
+                </p>
+              )}
+          </section>
+        )}
+
+        {message && (
+          <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+            {message}
           </div>
+        )}
 
-          {/* What happens next */}
-          <aside className="space-y-5 xl:sticky xl:top-4">
-            <section className={sectionClass}>
-              <h2 className="mb-3 text-lg font-bold text-gray-900">
-                What happens next
-              </h2>
+        {error && (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            {error}
+          </div>
+        )}
 
-              <ol className="list-decimal space-y-1.5 pl-5 text-sm text-gray-600">
-                <li>Admin reviews your documents.</li>
-                <li>A field officer is assigned to visit your farm.</li>
-                <li>
-                  The officer confirms identity, farming activity and produce.
-                </li>
-                <li>Admin approves, rejects or asks for more information.</li>
-                <li>You get the Verified Farmer badge and can list products.</li>
-              </ol>
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-6 rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:p-7"
+        >
+          <section>
+            <h2 className="mb-4 border-b pb-3 text-lg font-bold text-gray-900">
+              Personal Information
+            </h2>
 
-              <div
-                className={`mt-4 flex h-24 items-center justify-center rounded-lg border-2 text-sm ${
-                  status === "approved"
-                    ? "border-[#168343] bg-green-50 font-bold text-[#174832]"
-                    : "border-dashed border-gray-300 bg-gray-50 text-gray-500"
-                }`}
-              >
-                {status === "approved"
-                  ? "✓ Verified Farmer"
-                  : "Verified Farmer badge preview"}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {[
+                ["fullName", "Full name"],
+                ["nationalId", "National ID number"],
+                ["phone", "Phone number"],
+                ["county", "County"],
+                ["subCounty", "Sub-county"],
+              ].map(([name, label]) => (
+                <div key={name}>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                    {label} *
+                  </label>
+                  <input
+                    name={name}
+                    value={form[name]}
+                    onChange={handleChange}
+                    required
+                    className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-green-700 focus:ring-1 focus:ring-green-700"
+                  />
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section>
+            <h2 className="mb-4 border-b pb-3 text-lg font-bold text-gray-900">
+              Farm Information
+            </h2>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Farm name *
+                </label>
+                <input
+                  name="farmName"
+                  value={form.farmName}
+                  onChange={handleChange}
+                  required
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-green-700"
+                />
               </div>
 
-              <p className="mt-4 text-xs leading-5 text-gray-500">
-                Your ID and documents are private. Only verification staff can
-                see them. They never appear on product pages.
-              </p>
-            </section>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Farm location *
+                </label>
+                <input
+                  name="farmLocation"
+                  value={form.farmLocation}
+                  onChange={handleChange}
+                  required
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-green-700"
+                />
+              </div>
 
-            {/* Sample-only controls */}
-            <section className="rounded-xl border border-dashed border-gray-300 p-4">
-              <p className="mb-3 text-xs font-medium text-gray-500">
-                Testing only: act as the admin
-              </p>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Farming activities *
+                </label>
+                <input
+                  name="activities"
+                  value={form.activities}
+                  onChange={handleChange}
+                  required
+                  placeholder="e.g. Crop farming, livestock"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-green-700"
+                />
+              </div>
 
-              <div className="flex flex-wrap gap-2">
-                {nextStatus[status] && (
-                  <button
-                    type="button"
-                    onClick={() => moveStatus(nextStatus[status])}
-                    className="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 hover:border-[#168343] hover:text-[#168343]"
-                  >
-                    Move to next stage
-                  </button>
-                )}
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Crops or livestock *
+                </label>
+                <input
+                  name="crops"
+                  value={form.crops}
+                  onChange={handleChange}
+                  required
+                  placeholder="e.g. Maize, beans, dairy cattle"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-green-700"
+                />
+              </div>
 
-                {status === "pending_review" && (
-                  <button
-                    type="button"
-                    onClick={() => moveStatus("rejected")}
-                    className="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 hover:border-red-500 hover:text-red-600"
-                  >
-                    Reject documents
-                  </button>
-                )}
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Farm size *
+                </label>
+                <input
+                  name="farmSize"
+                  value={form.farmSize}
+                  onChange={handleChange}
+                  required
+                  placeholder="e.g. 2 acres"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-green-700"
+                />
+              </div>
 
-                <button
-                  type="button"
-                  onClick={resetAll}
-                  className="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 hover:border-gray-500"
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Relationship to farm *
+                </label>
+                <select
+                  name="relationship"
+                  value={form.relationship}
+                  onChange={handleChange}
+                  required
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm outline-none focus:border-green-700"
                 >
-                  Reset
-                </button>
+                  <option value="">Select relationship</option>
+                  <option value="Owner">Owner</option>
+                  <option value="Tenant">Tenant</option>
+                  <option value="Leaseholder">Leaseholder</option>
+                  <option value="Family farm">Family farm</option>
+                  <option value="Farm manager">Farm manager</option>
+                  <option value="Other">Other</option>
+                </select>
               </div>
-            </section>
-          </aside>
+            </div>
+          </section>
+
+          <section>
+            <h2 className="mb-2 border-b pb-3 text-lg font-bold text-gray-900">
+              Supporting Documents
+            </h2>
+            <p className="mb-1 text-sm text-gray-500">
+              Upload your National ID and any available supporting farm
+              documents. Accepted formats: PDF, PNG and JPG. Photos are
+              reduced in size automatically. PDFs must be under 1 MB.
+            </p>
+            <p className="mb-4 text-xs text-gray-500">
+              Storage used: {formatKB(usedChars)} of {formatKB(MAX_TOTAL_CHARS)}
+            </p>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {documentsList.map((document) => (
+                <div
+                  key={document.key}
+                  className="rounded-lg border border-gray-200 p-4"
+                >
+                  <label className="mb-2 block text-sm font-semibold text-gray-800">
+                    {document.label}
+                    {document.required && " *"}
+                  </label>
+
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/png,image/jpeg"
+                    required={
+                      document.required && !documents[document.key]?.dataUrl
+                    }
+                    disabled={uploading}
+                    onChange={(event) =>
+                      handleFileChange(event, document.key)
+                    }
+                    className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-green-100 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-green-800 hover:file:bg-green-200"
+                  />
+
+                  {documents[document.key] && (
+                    <div className="mt-2 flex items-center justify-between gap-3">
+                      <p className="break-all text-xs text-green-700">
+                        Selected:{" "}
+                        {documents[document.key].name ||
+                          documents[document.key]}{" "}
+                        ({formatKB(documents[document.key].dataUrl?.length || 0)})
+                      </p>
+                      {!document.required && (
+                        <button
+                          type="button"
+                          onClick={() => removeDocument(document.key)}
+                          className="shrink-0 text-xs font-semibold text-red-600 hover:underline"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <div className="flex flex-wrap justify-end gap-3 border-t pt-5">
+            <button
+              type="button"
+              onClick={() => {
+                setForm(initialForm);
+                setDocuments({});
+                setError("");
+                setMessage("");
+              }}
+              className="rounded-lg border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+            >
+              Clear form
+            </button>
+
+            <button
+              type="submit"
+              disabled={uploading}
+              className="rounded-lg bg-green-800 px-6 py-3 text-sm font-semibold text-white hover:bg-green-900 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {uploading ? "Reading document..." : "Submit for verification"}
+            </button>
+          </div>
+        </form>
+
+        <div className="rounded-lg bg-green-50 p-4 text-sm text-green-800">
+          <strong>What happens next?</strong>
+          <p className="mt-1">
+            After submission, the AgriBridge admin team will review your
+            information and supporting documents. A field visit may be
+            scheduled before your account is approved.
+          </p>
         </div>
-      </form>
+      </div>
     </div>
   );
 }
 
-export default FarmerVerification;
+export default Verification;
