@@ -11,6 +11,7 @@ const menuItems = [
   { name: "Categories", path: "/admin/categories" },
   { name: "Orders", path: "/admin/orders" },
   { name: "Payments", path: "/admin/payments" },
+  { name: "Notifications", path: "/admin/notifications" },
   { name: "Disputes", path: "/admin/disputes" },
   { name: "Reports", path: "/admin/reports" },
   { name: "Settings", path: "/admin/settings" },

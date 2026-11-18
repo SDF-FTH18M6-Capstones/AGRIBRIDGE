@@ -1,126 +1,331 @@
-import { useMemo, useState } from "react";
 
-const payments = [
-  { id: 1, date: "2026-11-14", order: "AB-1042", amount: 360, receipt: "SKL7H2Q9XA", status: "Received" },
-  { id: 2, date: "2026-11-12", order: "AB-1038", amount: 230, receipt: "SKK4M8T1ZB", status: "Received" },
-  { id: 3, date: "2026-11-09", order: "AB-1031", amount: 550, receipt: "SKJ2P6R5CD", status: "Received" },
-  { id: 4, date: "2026-11-16", order: "AB-1045", amount: 420, receipt: "Awaiting", status: "Pending" },
-];
+import { useEffect, useMemo, useState } from "react";
 
-const statusStyles = {
-  Received: "bg-green-100 text-green-800",
-  Pending: "bg-amber-100 text-amber-800",
+const PAYMENTS_KEY = "agribridge-payments";
+
+function getFarmerId() {
+  try {
+    const user = JSON.parse(localStorage.getItem("user")) || {};
+    return String(user.id || user.user_id || "farmer-1");
+  } catch {
+    return "farmer-1";
+  }
+}
+
+function loadPayments() {
+  try {
+    const saved = JSON.parse(
+      localStorage.getItem(PAYMENTS_KEY) || "[]"
+    );
+
+    return Array.isArray(saved) ? saved : [];
+  } catch {
+    return [];
+  }
+}
+
+const getPaymentStatus = (payment) => {
+  const status = String(payment.status || "Pending").toLowerCase();
+
+  if (status === "received" || status === "paid" || status === "completed") {
+    return "Paid";
+  }
+
+  if (status === "failed" || status === "cancelled") {
+    return "Failed";
+  }
+
+  return "Pending";
 };
 
-function formatDate(isoDate) {
-  return new Date(isoDate).toLocaleDateString("en-KE", {
+const formatKsh = (amount) =>
+  `KSh ${Number(amount || 0).toLocaleString("en-KE")}`;
+
+const formatDate = (value) => {
+  if (!value) return "—";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString("en-KE", {
     day: "numeric",
     month: "short",
     year: "numeric",
   });
-}
-
-function downloadStatement(rows) {
-  const header = ["Date", "Order", "Amount (KSh)", "M-Pesa receipt", "Status"];
-  const lines = rows.map((row) =>
-    [row.date, `#${row.order}`, row.amount, row.receipt, row.status].join(",")
-  );
-  const blob = new Blob([[header.join(","), ...lines].join("\n")], {
-    type: "text/csv",
-  });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "payments-statement.csv";
-  link.click();
-  URL.revokeObjectURL(url);
-}
+};
 
 function PaymentsReceivedPage() {
-  const [filter, setFilter] = useState("");
+  const [payments, setPayments] = useState([]);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
 
-  const rows = useMemo(() => {
-    const term = filter.trim().toLowerCase();
-    if (!term) return payments;
-    return payments.filter((payment) =>
-      [formatDate(payment.date), payment.date, payment.order, payment.status]
+  useEffect(() => {
+    const refreshPayments = () => {
+      const farmerId = getFarmerId();
+
+      const farmerPayments = loadPayments().filter(
+        (payment) =>
+          String(payment.farmerId || payment.sellerId || "") === farmerId
+      );
+
+      setPayments(farmerPayments);
+    };
+
+    refreshPayments();
+
+    window.addEventListener("storage", refreshPayments);
+    window.addEventListener("agribridge-update", refreshPayments);
+
+    return () => {
+      window.removeEventListener("storage", refreshPayments);
+      window.removeEventListener("agribridge-update", refreshPayments);
+    };
+  }, []);
+
+  const filteredPayments = useMemo(() => {
+    return payments.filter((payment) => {
+      const searchText = search.trim().toLowerCase();
+
+      const matchesSearch = [
+        payment.order,
+        payment.orderId,
+        payment.buyerName,
+        payment.buyer,
+        payment.date,
+        payment.receipt,
+        payment.mpesaReceipt,
+        payment.method,
+      ]
+        .filter(Boolean)
         .join(" ")
         .toLowerCase()
-        .includes(term)
+        .includes(searchText);
+
+      const matchesStatus =
+        statusFilter === "All" ||
+        getPaymentStatus(payment) === statusFilter;
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [payments, search, statusFilter]);
+
+  const totalReceived = payments
+    .filter((payment) => getPaymentStatus(payment) === "Paid")
+    .reduce(
+      (sum, payment) => sum + Number(payment.amount || 0),
+      0
     );
-  }, [filter]);
+
+  const totalPending = payments
+    .filter((payment) => getPaymentStatus(payment) === "Pending")
+    .reduce(
+      (sum, payment) => sum + Number(payment.amount || 0),
+      0
+    );
+
+  const downloadCSV = () => {
+    const headers = [
+      "Date",
+      "Order",
+      "Buyer",
+      "Amount",
+      "Method",
+      "Receipt",
+      "Status",
+    ];
+
+    const rows = filteredPayments.map((payment) => [
+      payment.date || "",
+      payment.order || payment.orderId || "",
+      payment.buyerName || payment.buyer || "",
+      payment.amount || 0,
+      payment.method || "M-Pesa",
+      payment.receipt || payment.mpesaReceipt || "",
+      getPaymentStatus(payment),
+    ]);
+
+    const csv = [headers, ...rows]
+      .map((row) =>
+        row
+          .map((value) => `"${String(value).replace(/"/g, '""')}"`)
+          .join(",")
+      )
+      .join("\n");
+
+    const blob = new Blob([csv], {
+      type: "text/csv;charset=utf-8;",
+    });
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = "farmer-payments.csv";
+    link.click();
+
+    URL.revokeObjectURL(url);
+  };
 
   return (
-    <div>
-      <h1 className="text-3xl font-bold text-gray-900">Payments received</h1>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">
+          Payments Received
+        </h1>
 
-      <section className="mt-6 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-bold text-gray-900">Payments</h2>
+        <p className="mt-1 text-sm text-gray-500">
+          View payments connected to your orders.
+        </p>
+      </div>
 
-        <label htmlFor="payments-filter" className="sr-only">
-          Filter by date or status
-        </label>
-        <input
-          id="payments-filter"
-          type="search"
-          value={filter}
-          onChange={(event) => setFilter(event.target.value)}
-          placeholder="Filter: date, status"
-          className="mt-4 w-full rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-900 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
-        />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="rounded-lg border border-gray-200 bg-white p-5">
+          <p className="text-sm text-gray-500">Total received</p>
 
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[640px] text-left text-sm">
+          <h2 className="mt-2 text-2xl font-bold text-green-700">
+            {formatKsh(totalReceived)}
+          </h2>
+        </div>
+
+        <div className="rounded-lg border border-gray-200 bg-white p-5">
+          <p className="text-sm text-gray-500">Pending payments</p>
+
+          <h2 className="mt-2 text-2xl font-bold text-yellow-700">
+            {formatKsh(totalPending)}
+          </h2>
+        </div>
+      </div>
+
+      <div className="space-y-4 rounded-lg border border-gray-200 bg-white p-5">
+        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+          <h3 className="text-base font-bold text-gray-900">
+            Payment transactions
+          </h3>
+
+          <button
+            type="button"
+            onClick={downloadCSV}
+            disabled={filteredPayments.length === 0}
+            className="rounded-md bg-[#143d24] px-4 py-2 text-xs font-medium text-white hover:bg-[#1c5231] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Download CSV
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <input
+            type="text"
+            placeholder="Search order, buyer or date..."
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          />
+
+          <select
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          >
+            <option value="All">All statuses</option>
+            <option value="Paid">Paid</option>
+            <option value="Pending">Pending</option>
+            <option value="Failed">Failed</option>
+          </select>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-left">
             <thead>
-              <tr className="border-b border-gray-200 text-gray-600">
-                <th scope="col" className="py-3 pr-4 font-medium">Date</th>
-                <th scope="col" className="py-3 pr-4 font-medium">Order</th>
-                <th scope="col" className="py-3 pr-4 font-medium">Amount</th>
-                <th scope="col" className="py-3 pr-4 font-medium">M-Pesa receipt</th>
-                <th scope="col" className="py-3 font-medium">Status</th>
+              <tr className="border-b border-gray-200 text-xs text-gray-600">
+                {[
+                  "Date",
+                  "Order",
+                  "Buyer",
+                  "Amount",
+                  "Method",
+                  "Receipt",
+                  "Status",
+                ].map((heading) => (
+                  <th
+                    key={heading}
+                    className="px-3 py-3 font-semibold"
+                  >
+                    {heading}
+                  </th>
+                ))}
               </tr>
             </thead>
-            <tbody>
-              {rows.length === 0 ? (
+
+            <tbody className="divide-y divide-gray-100 text-xs text-gray-700">
+              {filteredPayments.length > 0 ? (
+                filteredPayments.map((payment) => {
+                  const status = getPaymentStatus(payment);
+
+                  return (
+                    <tr key={payment.id}>
+                      <td className="whitespace-nowrap px-3 py-4">
+                        {formatDate(payment.date || payment.createdAt)}
+                      </td>
+
+                      <td className="px-3 py-4 font-medium text-gray-900">
+                        {payment.order || payment.orderId || "—"}
+                      </td>
+
+                      <td className="px-3 py-4">
+                        {payment.buyerName || payment.buyer || "—"}
+                      </td>
+
+                      <td className="whitespace-nowrap px-3 py-4">
+                        {formatKsh(payment.amount)}
+                      </td>
+
+                      <td className="px-3 py-4">
+                        {payment.method || "M-Pesa"}
+                      </td>
+
+                      <td className="px-3 py-4">
+                        {payment.receipt ||
+                          payment.mpesaReceipt ||
+                          "Awaiting"}
+                      </td>
+
+                      <td className="px-3 py-4">
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                            status === "Paid"
+                              ? "bg-green-100 text-green-700"
+                              : status === "Failed"
+                                ? "bg-red-100 text-red-700"
+                                : "bg-yellow-100 text-yellow-800"
+                          }`}
+                        >
+                          {status}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-gray-500">
-                    No payments match your filter.
+                  <td
+                    colSpan={7}
+                    className="px-3 py-10 text-center text-gray-500"
+                  >
+                    No payment transactions found.
                   </td>
                 </tr>
-              ) : (
-                rows.map((payment) => (
-                  <tr key={payment.id} className="border-b border-gray-100 text-gray-800">
-                    <td className="py-3 pr-4">{formatDate(payment.date)}</td>
-                    <td className="py-3 pr-4">#{payment.order}</td>
-                    <td className="py-3 pr-4">
-                      KSh {payment.amount.toLocaleString("en-KE")}
-                    </td>
-                    <td className="py-3 pr-4 font-mono text-xs">{payment.receipt}</td>
-                    <td className="py-3">
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-medium ${
-                          statusStyles[payment.status] ?? "bg-gray-100 text-gray-700"
-                        }`}
-                      >
-                        {payment.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))
               )}
             </tbody>
           </table>
         </div>
 
-        <button
-          type="button"
-          onClick={() => downloadStatement(rows)}
-          disabled={rows.length === 0}
-          className="mt-4 text-sm font-medium text-green-700 hover:text-green-900 disabled:cursor-not-allowed disabled:text-gray-400"
-        >
-          Download statement
-        </button>
-      </section>
+        <p className="text-xs text-gray-500">
+          Showing {filteredPayments.length} of {payments.length} transactions.
+        </p>
+      </div>
     </div>
   );
 }

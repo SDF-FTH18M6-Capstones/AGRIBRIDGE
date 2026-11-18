@@ -1,9 +1,8 @@
+
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
-// Change this to match your Add product route
-const ADD_PRODUCT_PATH = "/farmer/add-product";
-
+const ADD_PRODUCT_PATH = "/farmer/products/new";
 const STORAGE_KEY = "agribridge-farmer-products";
 
 const STATUSES = ["Draft", "Active", "Sold out", "Unavailable", "Archived"];
@@ -27,13 +26,15 @@ const statusClass = {
   Archived: "bg-gray-200 text-gray-600",
 };
 
-const formatKsh = (amount) => `KSh ${Number(amount).toLocaleString("en-KE")}`;
+const formatKsh = (amount) =>
+  `KSh ${Number(amount).toLocaleString("en-KE")}`;
 
 const loadProducts = () => {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     return saved ? JSON.parse(saved) : sampleProducts;
-  } catch {
+  } catch (error) {
+    console.error("Failed to load products:", error);
     return sampleProducts;
   }
 };
@@ -41,54 +42,88 @@ const loadProducts = () => {
 function FarmerMyProducts() {
   const [products, setProducts] = useState(loadProducts);
   const [filter, setFilter] = useState("All");
-  const [qtyDraft, setQtyDraft] = useState({}); // { [id]: "typed value" }
+  const [qtyDraft, setQtyDraft] = useState({});
   const [editingId, setEditingId] = useState(null);
   const [editDraft, setEditDraft] = useState({});
   const [message, setMessage] = useState("");
 
+  const inputClass =
+    "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 outline-none transition focus:border-[#168343] focus:ring-2 focus:ring-green-100";
+
+  const linkButton =
+    "text-sm font-medium text-gray-700 underline hover:text-[#168343]";
+
   const save = (next) => {
     setProducts(next);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    window.dispatchEvent(new Event("agribridge-update"));
   };
 
   const patch = (id, changes) => {
-    save(products.map((p) => (p.id === id ? { ...p, ...changes } : p)));
+    save(
+      products.map((product) =>
+        product.id === id ? { ...product, ...changes } : product
+      )
+    );
   };
 
-  // Quick quantity update. Sold out and Active follow the quantity.
   const updateQty = (product) => {
     const raw = qtyDraft[product.id];
-    const qty = Math.max(0, Math.floor(Number(raw)));
 
-    if (raw === "" || Number.isNaN(qty)) return;
+    if (
+      raw === "" ||
+      raw === undefined ||
+      !Number.isFinite(Number(raw)) ||
+      Number(raw) < 0
+    ) {
+      setMessage("Enter a valid quantity.");
+      return;
+    }
 
+    const qty = Math.floor(Number(raw));
     let status = product.status;
-    if (qty === 0 && status === "Active") status = "Sold out";
-    if (qty > 0 && status === "Sold out") status = "Active";
+
+    if (qty === 0 && status === "Active") {
+      status = "Sold out";
+    }
+
+    if (qty > 0 && status === "Sold out") {
+      status = "Active";
+    }
 
     patch(product.id, { qty, status });
-    setQtyDraft((d) => {
-      const { [product.id]: removed, ...rest } = d;
+
+    setQtyDraft((draft) => {
+      const { [product.id]: removed, ...rest } = draft;
       return rest;
     });
-    setMessage(`${product.name}: quantity updated to ${qty} ${product.unit}.`);
+
+    setMessage(
+      `${product.name}: quantity updated to ${qty} ${product.unit}.`
+    );
   };
 
   const startEdit = (product) => {
     setEditingId(product.id);
+
     setEditDraft({
       name: product.name,
       price: product.price,
       availability: product.availability,
       status: product.status,
     });
+
     setMessage("");
   };
 
   const saveEdit = (product) => {
     const price = Number(editDraft.price);
 
-    if (!editDraft.name.trim() || Number.isNaN(price) || price < 0) {
+    if (
+      !editDraft.name.trim() ||
+      !Number.isFinite(price) ||
+      price < 0
+    ) {
       setMessage("Enter a product name and a valid price.");
       return;
     }
@@ -99,6 +134,7 @@ function FarmerMyProducts() {
       availability: editDraft.availability,
       status: editDraft.status,
     });
+
     setEditingId(null);
     setMessage(`${editDraft.name.trim()} has been updated.`);
   };
@@ -117,27 +153,30 @@ function FarmerMyProducts() {
     save(sampleProducts);
     setEditingId(null);
     setQtyDraft({});
-    setMessage("");
+    setMessage("Sample products have been restored.");
   };
 
   const counts = STATUSES.reduce(
-    (acc, s) => ({ ...acc, [s]: products.filter((p) => p.status === s).length }),
+    (acc, status) => ({
+      ...acc,
+      [status]: products.filter(
+        (product) => product.status === status
+      ).length,
+    }),
     {}
   );
 
   const visible =
-    filter === "All" ? products : products.filter((p) => p.status === filter);
-
-  const inputClass =
-    "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 outline-none transition focus:border-[#168343] focus:ring-2 focus:ring-green-100";
-
-  const linkButton =
-    "text-sm font-medium text-gray-700 underline hover:text-[#168343]";
+    filter === "All"
+      ? products
+      : products.filter((product) => product.status === filter);
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">My products</h1>
+        <h1 className="text-2xl font-bold text-gray-900">
+          My products
+        </h1>
         <p className="mt-1 text-sm text-gray-500">
           Manage your listings, prices and stock.
         </p>
@@ -153,25 +192,32 @@ function FarmerMyProducts() {
       )}
 
       <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-        <h2 className="mb-4 text-lg font-bold text-gray-900">Listings</h2>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-bold text-gray-900">
+            Listings
+          </h2>
 
-        <Link
-          to={ADD_PRODUCT_PATH}
-          className="inline-block rounded-lg bg-[#174832] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#103724]"
-        >
-          Add product
-        </Link>
+          <Link
+            to={ADD_PRODUCT_PATH}
+            className="inline-block rounded-lg bg-[#174832] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#103724]"
+          >
+            + Add product
+          </Link>
+        </div>
 
         <select
           value={filter}
           onChange={(event) => setFilter(event.target.value)}
           aria-label="Filter products by status"
-          className="mb-5 mt-5 w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-gray-800 outline-none transition focus:border-[#168343] focus:ring-2 focus:ring-green-100"
+          className="mb-5 w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-gray-800 outline-none transition focus:border-[#168343] focus:ring-2 focus:ring-green-100"
         >
-          <option value="All">Filter: All ({products.length})</option>
-          {STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {s} ({counts[s]})
+          <option value="All">
+            Filter: All ({products.length})
+          </option>
+
+          {STATUSES.map((status) => (
+            <option key={status} value={status}>
+              {status} ({counts[status]})
             </option>
           ))}
         </select>
@@ -197,30 +243,39 @@ function FarmerMyProducts() {
               </thead>
 
               <tbody>
-                {visible.map((p) => {
-                  const editing = editingId === p.id;
-                  const typed = qtyDraft[p.id];
-                  const changed = typed !== undefined && Number(typed) !== p.qty;
+                {visible.map((product) => {
+                  const editing = editingId === product.id;
+                  const typed = qtyDraft[product.id];
+
+                  const changed =
+                    typed !== undefined &&
+                    Number(typed) !== Number(product.qty);
 
                   return (
-                    <tr key={p.id} className="border-b border-gray-100 align-top">
-                      {/* Product */}
+                    <tr
+                      key={product.id}
+                      className="border-b border-gray-100 align-top"
+                    >
                       <td className="px-2 py-4">
                         {editing ? (
                           <input
                             aria-label="Product name"
                             value={editDraft.name}
-                            onChange={(e) =>
-                              setEditDraft({ ...editDraft, name: e.target.value })
+                            onChange={(event) =>
+                              setEditDraft({
+                                ...editDraft,
+                                name: event.target.value,
+                              })
                             }
                             className={inputClass}
                           />
                         ) : (
-                          <span className="font-semibold text-gray-900">{p.name}</span>
+                          <span className="font-semibold text-gray-900">
+                            {product.name}
+                          </span>
                         )}
                       </td>
 
-                      {/* Price */}
                       <td className="px-2 py-4 text-gray-700">
                         {editing ? (
                           <input
@@ -228,102 +283,123 @@ function FarmerMyProducts() {
                             type="number"
                             min="0"
                             value={editDraft.price}
-                            onChange={(e) =>
-                              setEditDraft({ ...editDraft, price: e.target.value })
+                            onChange={(event) =>
+                              setEditDraft({
+                                ...editDraft,
+                                price: event.target.value,
+                              })
                             }
                             className={`${inputClass} w-28`}
                           />
                         ) : (
                           <>
-                            {formatKsh(p.price)}
-                            <span className="text-xs text-gray-500"> / {p.unit}</span>
+                            {formatKsh(product.price)}
+                            <span className="text-xs text-gray-500">
+                              {" "}/ {product.unit}
+                            </span>
                           </>
                         )}
                       </td>
 
-                      {/* Qty left with quick update */}
                       <td className="px-2 py-4">
                         <div className="flex items-center gap-2">
                           <input
-                            aria-label={`Quantity left for ${p.name}`}
+                            aria-label={`Quantity left for ${product.name}`}
                             type="number"
                             min="0"
-                            value={typed ?? p.qty}
-                            onChange={(e) =>
-                              setQtyDraft({ ...qtyDraft, [p.id]: e.target.value })
+                            value={typed ?? product.qty}
+                            onChange={(event) =>
+                              setQtyDraft({
+                                ...qtyDraft,
+                                [product.id]: event.target.value,
+                              })
                             }
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") updateQty(p);
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") {
+                                updateQty(product);
+                              }
                             }}
-                            disabled={p.status === "Archived"}
+                            disabled={product.status === "Archived"}
                             className={`${inputClass} w-24 disabled:bg-gray-50 disabled:text-gray-500`}
                           />
+
                           <button
                             type="button"
-                            onClick={() => updateQty(p)}
+                            onClick={() => updateQty(product)}
                             disabled={!changed}
                             className="text-sm font-medium text-gray-700 underline hover:text-[#168343] disabled:cursor-not-allowed disabled:no-underline disabled:opacity-40"
                           >
-                            update
+                            Update
                           </button>
                         </div>
                       </td>
 
-                      {/* Availability */}
                       <td className="px-2 py-4 text-gray-700">
                         {editing ? (
                           <select
                             aria-label="Availability"
                             value={editDraft.availability}
-                            onChange={(e) =>
-                              setEditDraft({ ...editDraft, availability: e.target.value })
+                            onChange={(event) =>
+                              setEditDraft({
+                                ...editDraft,
+                                availability: event.target.value,
+                              })
                             }
                             className={inputClass}
                           >
-                            {AVAILABILITY.map((a) => (
-                              <option key={a}>{a}</option>
+                            {AVAILABILITY.map((availability) => (
+                              <option key={availability}>
+                                {availability}
+                              </option>
                             ))}
                           </select>
                         ) : (
-                          p.availability
+                          product.availability
                         )}
                       </td>
 
-                      {/* Status */}
                       <td className="px-2 py-4">
                         {editing ? (
                           <select
                             aria-label="Status"
                             value={editDraft.status}
-                            onChange={(e) =>
-                              setEditDraft({ ...editDraft, status: e.target.value })
+                            onChange={(event) =>
+                              setEditDraft({
+                                ...editDraft,
+                                status: event.target.value,
+                              })
                             }
                             className={inputClass}
                           >
-                            {STATUSES.map((s) => (
-                              <option key={s}>{s}</option>
+                            {STATUSES.map((status) => (
+                              <option key={status}>
+                                {status}
+                              </option>
                             ))}
                           </select>
                         ) : (
                           <span
-                            className={`rounded-full px-3 py-1 text-xs font-semibold ${statusClass[p.status]}`}
+                            className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                              statusClass[product.status] ||
+                              "bg-gray-100 text-gray-600"
+                            }`}
                           >
-                            {p.status}
+                            {product.status}
                           </span>
                         )}
                       </td>
 
-                      {/* Actions */}
                       <td className="whitespace-nowrap px-2 py-4">
                         {editing ? (
                           <div className="flex gap-3">
                             <button
                               type="button"
-                              onClick={() => saveEdit(p)}
+                              onClick={() => saveEdit(product)}
                               className="text-sm font-semibold text-[#168343] underline"
                             >
                               Save
                             </button>
+
                             <button
                               type="button"
                               onClick={() => setEditingId(null)}
@@ -336,15 +412,16 @@ function FarmerMyProducts() {
                           <div className="flex gap-3">
                             <button
                               type="button"
-                              onClick={() => startEdit(p)}
+                              onClick={() => startEdit(product)}
                               className={linkButton}
                             >
                               Edit
                             </button>
-                            {p.status === "Archived" ? (
+
+                            {product.status === "Archived" ? (
                               <button
                                 type="button"
-                                onClick={() => restore(p)}
+                                onClick={() => restore(product)}
                                 className={linkButton}
                               >
                                 Restore
@@ -352,7 +429,7 @@ function FarmerMyProducts() {
                             ) : (
                               <button
                                 type="button"
-                                onClick={() => archive(p)}
+                                onClick={() => archive(product)}
                                 className={linkButton}
                               >
                                 Archive
@@ -386,3 +463,4 @@ function FarmerMyProducts() {
 }
 
 export default FarmerMyProducts;
+

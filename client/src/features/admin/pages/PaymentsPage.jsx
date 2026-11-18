@@ -1,71 +1,116 @@
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-const sampleTransactions = [
-  {
-    id: 1,
-    date: "2026-11-17",
-    order: "#ORD-001",
-    buyer: "Mary Wanjiku",
-    farmer: "John Kamau",
-    amount: 2500,
-    status: "Paid",
-  },
-  {
-    id: 2,
-    date: "2026-11-16",
-    order: "#ORD-002",
-    buyer: "Peter Otieno",
-    farmer: "Jane Njeri",
-    amount: 1800,
-    status: "Pending",
-  },
-  {
-    id: 3,
-    date: "2026-11-15",
-    order: "#ORD-003",
-    buyer: "Grace Akinyi",
-    farmer: "David Mwangi",
-    amount: 3200,
-    status: "Paid",
-  },
-  {
-    id: 4,
-    date: "2026-11-14",
-    order: "#ORD-004",
-    buyer: "Brian Kiptoo",
-    farmer: "Sarah Chebet",
-    amount: 1500,
-    status: "Failed",
-  },
-  {
-    id: 5,
-    date: "2026-11-13",
-    order: "#ORD-005",
-    buyer: "Faith Atieno",
-    farmer: "Michael Maina",
-    amount: 4200,
-    status: "Paid",
-  },
-];
+const PAYMENTS_KEY = "agribridge-payments";
 
 function PaymentsPage() {
-  const [transactions] = useState(sampleTransactions);
+  const [transactions, setTransactions] = useState([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
 
-  const filteredTransactions = transactions.filter((transaction) => {
-    const searchMatch =
-      transaction.date.toLowerCase().includes(search.toLowerCase()) ||
-      transaction.order.toLowerCase().includes(search.toLowerCase()) ||
-      transaction.buyer.toLowerCase().includes(search.toLowerCase()) ||
-      transaction.farmer.toLowerCase().includes(search.toLowerCase());
+  useEffect(() => {
+    const refreshPayments = () => {
+      try {
+        const savedPayments =
+          JSON.parse(localStorage.getItem(PAYMENTS_KEY)) || [];
 
-    const statusMatch =
-      statusFilter === "All" || transaction.status === statusFilter;
+        setTransactions(savedPayments);
+      } catch (error) {
+        console.error("Could not load payments:", error);
+        setTransactions([]);
+      }
+    };
 
-    return searchMatch && statusMatch;
-  });
+    refreshPayments();
+
+    window.addEventListener("storage", refreshPayments);
+    window.addEventListener("agribridge-update", refreshPayments);
+
+    return () => {
+      window.removeEventListener("storage", refreshPayments);
+      window.removeEventListener("agribridge-update", refreshPayments);
+    };
+  }, []);
+
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter((transaction) => {
+      const searchText = search.trim().toLowerCase();
+
+      const matchesSearch = [
+        transaction.date,
+        transaction.order,
+        transaction.orderId,
+        transaction.buyerName,
+        transaction.buyer,
+        transaction.farmerName,
+        transaction.farmer,
+        transaction.receipt,
+        transaction.mpesaReceipt,
+      ]
+        .map((value) => String(value || "").toLowerCase())
+        .some((value) => value.includes(searchText));
+
+      const matchesStatus =
+        statusFilter === "All" || transaction.status === statusFilter;
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [transactions, search, statusFilter]);
+
+  const totalPaid = transactions
+    .filter((transaction) => transaction.status === "Paid")
+    .reduce((sum, transaction) => sum + Number(transaction.amount || 0), 0);
+
+  const totalPending = transactions
+    .filter((transaction) => transaction.status === "Pending")
+    .reduce((sum, transaction) => sum + Number(transaction.amount || 0), 0);
+
+  const totalFailed = transactions
+    .filter((transaction) => transaction.status === "Failed")
+    .reduce((sum, transaction) => sum + Number(transaction.amount || 0), 0);
+
+  const downloadCSV = () => {
+    const headers = [
+      "Date",
+      "Order",
+      "Buyer",
+      "Farmer",
+      "Amount",
+      "Method",
+      "Receipt",
+      "Status",
+    ];
+
+    const rows = filteredTransactions.map((transaction) => [
+      transaction.date || "",
+      transaction.order || transaction.orderId || "",
+      transaction.buyerName || transaction.buyer || "",
+      transaction.farmerName || transaction.farmer || "",
+      transaction.amount || 0,
+      transaction.method || "M-Pesa",
+      transaction.receipt || transaction.mpesaReceipt || "",
+      transaction.status || "Pending",
+    ]);
+
+    const csv = [headers, ...rows]
+      .map((row) =>
+        row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(",")
+      )
+      .join("\n");
+
+    const blob = new Blob([csv], {
+      type: "text/csv;charset=utf-8;",
+    });
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = "agribridge-transactions.csv";
+    link.click();
+
+    URL.revokeObjectURL(url);
+  };
 
   const styles = {
     page: {
@@ -77,6 +122,11 @@ function PaymentsPage() {
     heading: {
       fontSize: "24px",
       fontWeight: "700",
+      marginBottom: "8px",
+    },
+    description: {
+      fontSize: "14px",
+      color: "#647067",
       marginBottom: "24px",
     },
     card: {
@@ -90,7 +140,6 @@ function PaymentsPage() {
       padding: "11px",
       border: "1px solid #aebbb2",
       borderRadius: "6px",
-      marginBottom: "16px",
       fontSize: "14px",
       boxSizing: "border-box",
     },
@@ -102,7 +151,7 @@ function PaymentsPage() {
     cell: {
       padding: "14px 10px",
       borderBottom: "1px solid #e2e8e3",
-      fontSize: "14px",
+      fontSize: "13px",
     },
   };
 
@@ -110,32 +159,62 @@ function PaymentsPage() {
     <div style={styles.page}>
       <h1 style={styles.heading}>Transactions</h1>
 
+      <p style={styles.description}>
+        Monitor all buyer and farmer payment transactions.
+      </p>
+
+      <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="rounded-lg border border-green-200 bg-white p-5">
+          <p className="text-sm text-gray-500">Total paid</p>
+          <h2 className="mt-2 text-2xl font-bold text-green-700">
+            KSh {totalPaid.toLocaleString("en-KE")}
+          </h2>
+        </div>
+
+        <div className="rounded-lg border border-yellow-200 bg-white p-5">
+          <p className="text-sm text-gray-500">Pending payments</p>
+          <h2 className="mt-2 text-2xl font-bold text-yellow-700">
+            KSh {totalPending.toLocaleString("en-KE")}
+          </h2>
+        </div>
+
+        <div className="rounded-lg border border-red-200 bg-white p-5">
+          <p className="text-sm text-gray-500">Failed payments</p>
+          <h2 className="mt-2 text-2xl font-bold text-red-700">
+            KSh {totalFailed.toLocaleString("en-KE")}
+          </h2>
+        </div>
+      </div>
+
       <div style={styles.card}>
-        <h3 style={{ marginTop: 0, marginBottom: "18px" }}>
-          M-Pesa transactions
-        </h3>
+        <div className="mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+          <h3 className="text-base font-bold text-gray-900">
+            M-Pesa transactions
+          </h3>
 
-        <input
-          type="text"
-          placeholder="Search: date, order, buyer, farmer..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={styles.input}
-        />
+          <button
+            type="button"
+            onClick={downloadCSV}
+            disabled={filteredTransactions.length === 0}
+            className="rounded-md bg-[#143d24] px-4 py-2 text-xs font-medium text-white hover:bg-[#1c5231] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Download CSV
+          </button>
+        </div>
 
-        <div style={{ marginBottom: "18px" }}>
-          <label style={{ marginRight: "10px", fontSize: "14px" }}>
-            Filter by status:
-          </label>
+        <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <input
+            type="text"
+            placeholder="Search: date, order, buyer, farmer..."
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            style={styles.input}
+          />
 
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            style={{
-              padding: "8px",
-              border: "1px solid #aebbb2",
-              borderRadius: "5px",
-            }}
+            onChange={(event) => setStatusFilter(event.target.value)}
+            style={styles.input}
           >
             <option value="All">All statuses</option>
             <option value="Paid">Paid</option>
@@ -148,55 +227,76 @@ function PaymentsPage() {
           <table style={styles.table}>
             <thead>
               <tr>
-                {["Date", "Order", "Buyer", "Farmer", "Amount", "Status"].map(
-                  (heading) => (
-                    <th
-                      key={heading}
-                      style={{
-                        ...styles.cell,
-                        fontWeight: "600",
-                      }}
-                    >
-                      {heading}
-                    </th>
-                  )
-                )}
+                {[
+                  "Date",
+                  "Order",
+                  "Buyer",
+                  "Farmer",
+                  "Amount",
+                  "Method",
+                  "Receipt",
+                  "Status",
+                ].map((heading) => (
+                  <th
+                    key={heading}
+                    style={{
+                      ...styles.cell,
+                      fontWeight: "600",
+                      color: "#526057",
+                    }}
+                  >
+                    {heading}
+                  </th>
+                ))}
               </tr>
             </thead>
 
             <tbody>
               {filteredTransactions.length > 0 ? (
-                filteredTransactions.map((transaction) => (
-                  <tr key={transaction.id}>
-                    <td style={styles.cell}>{transaction.date}</td>
-                    <td style={styles.cell}>{transaction.order}</td>
-                    <td style={styles.cell}>{transaction.buyer}</td>
-                    <td style={styles.cell}>{transaction.farmer}</td>
+                filteredTransactions.map((transaction, index) => (
+                  <tr key={transaction.id || transaction.orderId || index}>
                     <td style={styles.cell}>
-                      KSh {transaction.amount.toLocaleString("en-KE")}
+                      {transaction.date || "—"}
                     </td>
+
+                    <td style={styles.cell}>
+                      {transaction.order || transaction.orderId || "—"}
+                    </td>
+
+                    <td style={styles.cell}>
+                      {transaction.buyerName || transaction.buyer || "—"}
+                    </td>
+
+                    <td style={styles.cell}>
+                      {transaction.farmerName || transaction.farmer || "—"}
+                    </td>
+
+                    <td style={styles.cell}>
+                      KSh{" "}
+                      {Number(transaction.amount || 0).toLocaleString("en-KE")}
+                    </td>
+
+                    <td style={styles.cell}>
+                      {transaction.method || "M-Pesa"}
+                    </td>
+
+                    <td style={styles.cell}>
+                      {transaction.receipt ||
+                        transaction.mpesaReceipt ||
+                        "Awaiting"}
+                    </td>
+
                     <td style={styles.cell}>
                       <span
-                        style={{
-                          padding: "5px 10px",
-                          borderRadius: "20px",
-                          fontSize: "12px",
-                          fontWeight: "600",
-                          backgroundColor:
-                            transaction.status === "Paid"
-                              ? "#dcfce7"
-                              : transaction.status === "Pending"
-                                ? "#fef3c7"
-                                : "#fee2e2",
-                          color:
-                            transaction.status === "Paid"
-                              ? "#166534"
-                              : transaction.status === "Pending"
-                                ? "#92400e"
-                                : "#991b1b",
-                        }}
+                        className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                          transaction.status === "Paid"
+                            ? "bg-green-100 text-green-700"
+                            : transaction.status === "Pending"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : "bg-red-100 text-red-700"
+                        }`}
                       >
-                        {transaction.status}
+                        {transaction.status || "Pending"}
                       </span>
                     </td>
                   </tr>
@@ -204,11 +304,12 @@ function PaymentsPage() {
               ) : (
                 <tr>
                   <td
-                    colSpan="6"
+                    colSpan="8"
                     style={{
                       ...styles.cell,
                       textAlign: "center",
                       padding: "25px",
+                      color: "#647067",
                     }}
                   >
                     No transactions found.
@@ -219,12 +320,8 @@ function PaymentsPage() {
           </table>
         </div>
 
-        <p style={{ fontSize: "13px", color: "#647067", marginBottom: 0 }}>
+        <p className="mt-4 text-xs text-gray-500">
           Showing {filteredTransactions.length} of {transactions.length} transactions.
-        </p>
-
-        <p style={{ fontSize: "12px", color: "#647067" }}>
-          Failed or disputed payments are flagged.
         </p>
       </div>
     </div>
@@ -232,3 +329,4 @@ function PaymentsPage() {
 }
 
 export default PaymentsPage;
+

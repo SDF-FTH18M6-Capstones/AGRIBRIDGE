@@ -1,113 +1,181 @@
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-const initialRequests = [
-  {
-    id: 1,
-    buyer: "Mary Wanjiku",
-    product: "Fresh Tomatoes",
-    quantity: 50,
-    unit: "kg",
-    price: 120,
-    location: "Nairobi",
-    date: "17 Nov 2026",
-    message: "I would like fresh tomatoes for my grocery shop.",
-    status: "Pending",
-  },
-  {
-    id: 2,
-    buyer: "Peter Mwangi",
-    product: "Green Kale",
-    quantity: 30,
-    unit: "bunches",
-    price: 40,
-    location: "Kiambu",
-    date: "16 Nov 2026",
-    message: "Please confirm if you can supply this quantity.",
-    status: "Pending",
-  },
-  {
-    id: 3,
-    buyer: "Grace Achieng",
-    product: "Sweet Potatoes",
-    quantity: 100,
-    unit: "kg",
-    price: 90,
-    location: "Nakuru",
-    date: "15 Nov 2026",
-    message: "Looking for a regular supplier.",
-    status: "Accepted",
-  },
-  {
-    id: 4,
-    buyer: "John Kamau",
-    product: "Fresh Avocados",
-    quantity: 25,
-    unit: "kg",
-    price: 150,
-    location: "Thika",
-    date: "14 Nov 2026",
-    message: "Kindly let me know when these will be ready.",
-    status: "Declined",
-  },
-];
+const STORAGE_KEY = "agribridge-buyer-requests";
+
+function getStoredRequests() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+  } catch {
+    return [];
+  }
+}
+
+function getCurrentFarmer() {
+  try {
+    return JSON.parse(localStorage.getItem("user")) || {};
+  } catch {
+    return {};
+  }
+}
 
 function BuyerRequests() {
-  const [requests, setRequests] = useState(initialRequests);
-  const [filter, setFilter] = useState("All");
+  const farmer = getCurrentFarmer();
+
+  const farmerId = farmer.id || farmer.user_id || "farmer-1";
+  const farmerName =
+    farmer.fullName || farmer.full_name || farmer.name || farmer.username || "Farmer";
+
+  const [requests, setRequests] = useState([]);
   const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState("All");
   const [selectedRequest, setSelectedRequest] = useState(null);
 
-  const updateRequest = (id, newStatus) => {
-    setRequests((currentRequests) =>
-      currentRequests.map((request) =>
-        request.id === id
-          ? { ...request, status: newStatus }
-          : request
-      )
-    );
+  useEffect(() => {
+    const loadRequests = () => {
+      setRequests(getStoredRequests());
+    };
 
-    setSelectedRequest(null);
+    loadRequests();
+
+    window.addEventListener("storage", loadRequests);
+    window.addEventListener("agribridge-update", loadRequests);
+
+    return () => {
+      window.removeEventListener("storage", loadRequests);
+      window.removeEventListener("agribridge-update", loadRequests);
+    };
+  }, []);
+
+  const getFarmerResponse = (request) => {
+    if (!Array.isArray(request.responses)) {
+      return null;
+    }
+
+    return request.responses.find(
+      (response) => String(response.farmerId) === String(farmerId)
+    );
   };
 
-  const filteredRequests = requests.filter((request) => {
-    const matchesFilter =
-      filter === "All" || request.status === filter;
+  const getRequestStatus = (request) => {
+    const response = getFarmerResponse(request);
+    return response?.status || "pending";
+  };
 
-    const matchesSearch =
-      request.buyer.toLowerCase().includes(search.toLowerCase()) ||
-      request.product.toLowerCase().includes(search.toLowerCase());
+  const updateRequest = (requestId, newStatus) => {
+    const allRequests = getStoredRequests();
 
-    return matchesFilter && matchesSearch;
-  });
+    const updatedRequests = allRequests.map((request) => {
+      if (String(request.id) !== String(requestId)) {
+        return request;
+      }
 
-  const pendingCount = requests.filter(
-    (request) => request.status === "Pending"
-  ).length;
+      const oldResponses = Array.isArray(request.responses)
+        ? request.responses
+        : [];
 
-  const acceptedCount = requests.filter(
-    (request) => request.status === "Accepted"
-  ).length;
+      const newResponse = {
+        farmerId,
+        farmerName,
+        status: newStatus,
+        respondedAt: new Date().toISOString(),
+      };
 
-  const declinedCount = requests.filter(
-    (request) => request.status === "Declined"
-  ).length;
+      const existingResponse = oldResponses.some(
+        (response) => String(response.farmerId) === String(farmerId)
+      );
+
+      const updatedResponses = existingResponse
+        ? oldResponses.map((response) =>
+            String(response.farmerId) === String(farmerId)
+              ? newResponse
+              : response
+          )
+        : [...oldResponses, newResponse];
+
+      return {
+        ...request,
+        responses: updatedResponses,
+      };
+    });
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedRequests));
+
+    setRequests(updatedRequests);
+    setSelectedRequest(null);
+
+    window.dispatchEvent(new Event("agribridge-update"));
+  };
+
+  const getQuantity = (request) => {
+    return (
+      request.quantityNeeded ||
+      request.qty ||
+      `${request.quantity || ""} ${request.unit || ""}`.trim() ||
+      "Not specified"
+    );
+  };
+
+  const getDate = (request) => {
+    const date = request.neededByDate || request.createdAt;
+
+    if (!date) return "Not specified";
+
+    const parsedDate = new Date(date);
+
+    if (Number.isNaN(parsedDate.getTime())) {
+      return date;
+    }
+
+    return parsedDate.toLocaleDateString("en-KE", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  };
 
   const getStatusStyle = (status) => {
-    if (status === "Accepted") {
+    if (status === "accepted") {
       return "bg-green-100 text-green-700";
     }
 
-    if (status === "Declined") {
+    if (status === "declined") {
       return "bg-red-100 text-red-700";
     }
 
-    return "bg-orange-100 text-orange-700";
+    return "bg-yellow-100 text-yellow-700";
   };
+
+  const filteredRequests = requests.filter((request) => {
+    const buyerName = request.buyerName || request.buyer || "Buyer";
+    const product = request.product || "";
+
+    const matchesSearch =
+      String(buyerName).toLowerCase().includes(search.toLowerCase()) ||
+      String(product).toLowerCase().includes(search.toLowerCase());
+
+    const status = getRequestStatus(request);
+
+    const matchesFilter =
+      filter === "All" || status === filter.toLowerCase();
+
+    return matchesSearch && matchesFilter;
+  });
+
+  const pendingCount = requests.filter(
+    (request) => getRequestStatus(request) === "pending"
+  ).length;
+
+  const acceptedCount = requests.filter(
+    (request) => getRequestStatus(request) === "accepted"
+  ).length;
+
+  const declinedCount = requests.filter(
+    (request) => getRequestStatus(request) === "declined"
+  ).length;
 
   return (
     <div className="space-y-7">
-      {/* Page heading */}
       <div>
         <p className="text-sm font-medium text-green-700">
           Farmer dashboard / Buyer requests
@@ -118,18 +186,18 @@ function BuyerRequests() {
             <h1 className="text-2xl font-bold text-gray-900">
               Buyer Requests
             </h1>
+
             <p className="mt-1 text-sm text-gray-500">
               Review purchase requests from buyers and manage your responses.
             </p>
           </div>
 
-          <span className="w-fit rounded-full bg-orange-100 px-4 py-2 text-sm font-semibold text-orange-700">
+          <span className="w-fit rounded-full bg-yellow-100 px-4 py-2 text-sm font-semibold text-yellow-700">
             {pendingCount} pending requests
           </span>
         </div>
       </div>
 
-      {/* Summary cards */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
           <p className="text-sm text-gray-500">Total requests</p>
@@ -141,7 +209,7 @@ function BuyerRequests() {
 
         <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
           <p className="text-sm text-gray-500">Pending</p>
-          <h2 className="mt-2 text-3xl font-bold text-orange-600">
+          <h2 className="mt-2 text-3xl font-bold text-yellow-600">
             {pendingCount}
           </h2>
           <p className="mt-1 text-xs text-gray-400">Awaiting your response</p>
@@ -164,13 +232,13 @@ function BuyerRequests() {
         </div>
       </div>
 
-      {/* Requests table */}
       <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
         <div className="flex flex-col justify-between gap-4 border-b border-gray-100 p-5 lg:flex-row lg:items-center">
           <div>
             <h2 className="font-bold text-gray-900">
               Purchase requests
             </h2>
+
             <p className="mt-1 text-sm text-gray-500">
               View buyer details and respond to requests.
             </p>
@@ -205,77 +273,64 @@ function BuyerRequests() {
                 <th className="px-6 py-4 font-semibold">Buyer</th>
                 <th className="px-6 py-4 font-semibold">Product</th>
                 <th className="px-6 py-4 font-semibold">Quantity</th>
-                <th className="px-6 py-4 font-semibold">Total value</th>
-                <th className="px-6 py-4 font-semibold">Date</th>
+                <th className="px-6 py-4 font-semibold">Price Range</th>
+                <th className="px-6 py-4 font-semibold">Needed By</th>
                 <th className="px-6 py-4 font-semibold">Status</th>
                 <th className="px-6 py-4 text-right font-semibold">Actions</th>
               </tr>
             </thead>
 
             <tbody className="divide-y divide-gray-100">
-              {filteredRequests.map((request) => (
-                <tr key={request.id} className="transition hover:bg-gray-50">
-                  <td className="px-6 py-4">
-                    <p className="font-semibold text-gray-900">
-                      {request.buyer}
-                    </p>
-                    <p className="mt-1 text-xs text-gray-500">
-                      {request.location}
-                    </p>
-                  </td>
+              {filteredRequests.map((request) => {
+                const status = getRequestStatus(request);
 
-                  <td className="px-6 py-4 text-sm text-gray-700">
-                    {request.product}
-                  </td>
+                return (
+                  <tr key={request.id} className="transition hover:bg-gray-50">
+                    <td className="px-6 py-4">
+                      <p className="font-semibold text-gray-900">
+                        {request.buyerName || request.buyer || "Buyer"}
+                      </p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        {request.preferredLocation || request.location || ""}
+                      </p>
+                    </td>
 
-                  <td className="px-6 py-4 text-sm text-gray-700">
-                    {request.quantity} {request.unit}
-                  </td>
+                    <td className="px-6 py-4 text-sm text-gray-700">
+                      {request.product || "Not specified"}
+                    </td>
 
-                  <td className="px-6 py-4 text-sm font-semibold text-gray-900">
-                    KSh {(request.quantity * request.price).toLocaleString("en-KE")}
-                  </td>
+                    <td className="px-6 py-4 text-sm text-gray-700">
+                      {getQuantity(request)}
+                    </td>
 
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    {request.date}
-                  </td>
+                    <td className="px-6 py-4 text-sm text-gray-700">
+                      {request.priceRange || "Not specified"}
+                    </td>
 
-                  <td className="px-6 py-4">
-                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusStyle(request.status)}`}>
-                      {request.status}
-                    </span>
-                  </td>
+                    <td className="px-6 py-4 text-sm text-gray-500">
+                      {getDate(request)}
+                    </td>
 
-                  <td className="px-6 py-4">
-                    <div className="flex justify-end gap-3">
+                    <td className="px-6 py-4">
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${getStatusStyle(status)}`}
+                      >
+                        {status}
+                      </span>
+                    </td>
+
+                    <td className="px-6 py-4 text-right">
                       <button
+                        type="button"
                         onClick={() => setSelectedRequest(request)}
                         className="text-sm font-semibold text-green-700 hover:text-green-900"
                       >
-                        View
+                        View details
                       </button>
-
-                      {request.status === "Pending" && (
-                        <>
-                          <button
-                            onClick={() => updateRequest(request.id, "Accepted")}
-                            className="text-sm font-semibold text-green-700 hover:text-green-900"
-                          >
-                            Accept
-                          </button>
-
-                          <button
-                            onClick={() => updateRequest(request.id, "Declined")}
-                            className="text-sm font-semibold text-red-600 hover:text-red-800"
-                          >
-                            Decline
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                  </tr>
+                );
+              })}
 
               {filteredRequests.length === 0 && (
                 <tr>
@@ -284,7 +339,7 @@ function BuyerRequests() {
                       No requests found
                     </p>
                     <p className="mt-1 text-sm text-gray-500">
-                      Try another search or filter.
+                      New requests from buyers will appear here.
                     </p>
                   </td>
                 </tr>
@@ -298,16 +353,24 @@ function BuyerRequests() {
         </div>
       </div>
 
-      {/* Request details modal */}
       {selectedRequest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setSelectedRequest(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-bold text-gray-900">
                 Request details
               </h2>
 
               <button
+                type="button"
                 onClick={() => setSelectedRequest(null)}
                 className="text-2xl text-gray-400 hover:text-gray-700"
               >
@@ -319,66 +382,87 @@ function BuyerRequests() {
               <div>
                 <p className="text-xs text-gray-500">Buyer</p>
                 <p className="mt-1 font-semibold text-gray-900">
-                  {selectedRequest.buyer}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-gray-500">Product</p>
-                  <p className="mt-1 font-medium text-gray-900">
-                    {selectedRequest.product}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-xs text-gray-500">Quantity</p>
-                  <p className="mt-1 font-medium text-gray-900">
-                    {selectedRequest.quantity} {selectedRequest.unit}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-xs text-gray-500">Price per unit</p>
-                  <p className="mt-1 font-medium text-gray-900">
-                    KSh {selectedRequest.price}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-xs text-gray-500">Total value</p>
-                  <p className="mt-1 font-semibold text-green-700">
-                    KSh {(selectedRequest.quantity * selectedRequest.price).toLocaleString("en-KE")}
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                <p className="text-xs text-gray-500">Buyer message</p>
-                <p className="mt-1 rounded-xl bg-gray-50 p-4 text-sm leading-6 text-gray-700">
-                  {selectedRequest.message}
+                  {selectedRequest.buyerName ||
+                    selectedRequest.buyer ||
+                    "Buyer"}
                 </p>
               </div>
 
               <div>
-                <p className="text-xs text-gray-500">Request status</p>
-                <span className={`mt-2 inline-block rounded-full px-3 py-1 text-xs font-semibold ${getStatusStyle(selectedRequest.status)}`}>
-                  {selectedRequest.status}
+                <p className="text-xs text-gray-500">Product</p>
+                <p className="mt-1 font-medium text-gray-900">
+                  {selectedRequest.product || "Not specified"}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs text-gray-500">Quantity needed</p>
+                <p className="mt-1 font-medium text-gray-900">
+                  {getQuantity(selectedRequest)}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs text-gray-500">Price range</p>
+                <p className="mt-1 font-medium text-gray-900">
+                  {selectedRequest.priceRange || "Not specified"}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs text-gray-500">Preferred location</p>
+                <p className="mt-1 font-medium text-gray-900">
+                  {selectedRequest.preferredLocation ||
+                    selectedRequest.location ||
+                    "Not specified"}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs text-gray-500">Needed by</p>
+                <p className="mt-1 font-medium text-gray-900">
+                  {getDate(selectedRequest)}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs text-gray-500">Quality requirements</p>
+                <p className="mt-1 text-sm text-gray-700">
+                  {selectedRequest.qualityRequirements ||
+                    selectedRequest.message ||
+                    "No additional requirements."}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs text-gray-500">Your response</p>
+                <span
+                  className={`mt-2 inline-block rounded-full px-3 py-1 text-xs font-semibold capitalize ${getStatusStyle(
+                    getRequestStatus(selectedRequest)
+                  )}`}
+                >
+                  {getRequestStatus(selectedRequest)}
                 </span>
               </div>
             </div>
 
-            {selectedRequest.status === "Pending" && (
-              <div className="mt-6 flex gap-3 border-t border-gray-100 pt-5">
+            {getRequestStatus(selectedRequest) === "pending" && (
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                 <button
-                  onClick={() => updateRequest(selectedRequest.id, "Declined")}
+                  type="button"
+                  onClick={() =>
+                    updateRequest(selectedRequest.id, "declined")
+                  }
                   className="flex-1 rounded-xl border border-red-200 px-4 py-3 text-sm font-semibold text-red-600 hover:bg-red-50"
                 >
                   Decline request
                 </button>
 
                 <button
-                  onClick={() => updateRequest(selectedRequest.id, "Accepted")}
+                  type="button"
+                  onClick={() =>
+                    updateRequest(selectedRequest.id, "accepted")
+                  }
                   className="flex-1 rounded-xl bg-green-700 px-4 py-3 text-sm font-semibold text-white hover:bg-green-800"
                 >
                   Accept request
@@ -393,3 +477,5 @@ function BuyerRequests() {
 }
 
 export default BuyerRequests;
+
+
