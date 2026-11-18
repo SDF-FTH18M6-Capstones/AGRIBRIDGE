@@ -1,11 +1,22 @@
 
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import api from "../../services/api";
+import { setAccessToken } from "./utils/authToken";
 
 const inputClass =
   "w-full rounded-lg border border-gray-300 px-4 py-3 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-100";
 
+const roleRoutes = {
+  admin: "/admin",
+  farmer: "/farmer",
+  buyer: "/buyer",
+  "field-officer": "/field-officer",
+  field_officer: "/field-officer",
+};
+
 export default function AuthPage() {
+  const navigate = useNavigate();
   const { pathname } = useLocation();
   const isRegister = pathname === "/register";
 
@@ -22,27 +33,89 @@ export default function AuthPage() {
     role: "farmer",
   });
 
-  function handleLogin(e) {
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  async function handleLogin(e) {
     e.preventDefault();
 
-    // TODO: Connect to backend login endpoint.
-    alert("Login form ready for backend integration.");
+    setLoading(true);
+    setMessage("");
+    setError("");
+
+    try {
+      const response = await api.post("/login", {
+        email: login.email,
+        password: login.password,
+      });
+
+      const data = response.data.data;
+      const token = data.access_token;
+      const user = data.user;
+
+      if (!token) {
+        throw new Error("Login succeeded but no access token was returned.");
+      }
+
+      setAccessToken(token);
+
+      localStorage.setItem("agribridge_user", JSON.stringify(user));
+
+      const role = user.role?.toLowerCase();
+      const destination = roleRoutes[role];
+
+      if (!destination) {
+        setError("Your account role is not recognized.");
+        return;
+      }
+
+      navigate(destination);
+    } catch (err) {
+      setError(err.message || "Login failed. Please check your details.");
+    } finally {
+      setLoading(false);
+    }
   }
 
-  function handleRegister(e) {
+  async function handleRegister(e) {
     e.preventDefault();
 
-    // TODO: Connect to backend registration endpoint.
-    alert("Registration form ready for backend integration.");
+    setLoading(true);
+    setMessage("");
+    setError("");
+
+    try {
+      const response = await api.post("/register", {
+        full_name: register.fullName,
+        email: register.email,
+        password: register.password,
+        phone_number: register.phone,
+        role: register.role,
+      });
+
+      setMessage(
+        response.data.message || "Registration successful. Please log in."
+      );
+
+      setRegister({
+        fullName: "",
+        phone: "",
+        email: "",
+        password: "",
+        role: "farmer",
+      });
+    } catch (err) {
+      setError(err.message || "Registration failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
     <div className="flex min-h-[70vh] items-center justify-center py-10">
       <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-lg sm:p-9">
-
         <div className="mb-8 text-center">
-          
-
           <h1 className="text-3xl font-bold text-green-800">
             {isRegister ? "Create an Account" : "Welcome Back"}
           </h1>
@@ -54,8 +127,19 @@ export default function AuthPage() {
           </p>
         </div>
 
+        {error && (
+          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
+            {error}
+          </div>
+        )}
+
+        {message && (
+          <div className="mb-6 rounded-lg border border-green-200 bg-green-50 p-4 text-green-700">
+            {message}
+          </div>
+        )}
+
         {isRegister ? (
-          // REGISTRATION FORM
           <form onSubmit={handleRegister} className="space-y-5">
             <div>
               <label htmlFor="register-name" className="mb-2 block font-medium">
@@ -109,7 +193,10 @@ export default function AuthPage() {
             </div>
 
             <div>
-              <label htmlFor="register-password" className="mb-2 block font-medium">
+              <label
+                htmlFor="register-password"
+                className="mb-2 block font-medium"
+              >
                 Password
               </label>
               <input
@@ -162,13 +249,13 @@ export default function AuthPage() {
 
             <button
               type="submit"
-              className="w-full rounded-lg bg-green-700 px-5 py-3 font-semibold text-white transition hover:bg-green-800"
+              disabled={loading}
+              className="w-full rounded-lg bg-green-700 px-5 py-3 font-semibold text-white transition hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Create Account
+              {loading ? "Please wait..." : "Create Account →"}
             </button>
           </form>
         ) : (
-          // LOGIN FORM
           <form onSubmit={handleLogin} className="space-y-5">
             <div>
               <label htmlFor="login-email" className="mb-2 block font-medium">
@@ -188,7 +275,10 @@ export default function AuthPage() {
             </div>
 
             <div>
-              <label htmlFor="login-password" className="mb-2 block font-medium">
+              <label
+                htmlFor="login-password"
+                className="mb-2 block font-medium"
+              >
                 Password
               </label>
               <input
@@ -206,9 +296,10 @@ export default function AuthPage() {
 
             <button
               type="submit"
-              className="w-full rounded-lg bg-green-700 px-5 py-3 font-semibold text-white transition hover:bg-green-800"
+              disabled={loading}
+              className="w-full rounded-lg bg-green-700 px-5 py-3 font-semibold text-white transition hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Log In
+              {loading ? "Please wait..." : "Log In →"}
             </button>
           </form>
         )}
