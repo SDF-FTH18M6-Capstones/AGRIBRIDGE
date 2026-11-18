@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { setAccessToken } from "./utils/authToken";
 
@@ -17,11 +17,12 @@ const roleRoutes = {
 
 export default function AuthPage() {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const isRegister = pathname === "/register";
 
   const [login, setLogin] = useState({
     email: "",
     password: "",
-    remember: false,
   });
 
   const [register, setRegister] = useState({
@@ -59,10 +60,7 @@ export default function AuthPage() {
 
       setAccessToken(token);
 
-      localStorage.setItem(
-        "agribridge_user",
-        JSON.stringify(user)
-      );
+      localStorage.setItem("agribridge_user", JSON.stringify(user));
 
       const role = user.role?.toLowerCase();
       const destination = roleRoutes[role];
@@ -74,9 +72,7 @@ export default function AuthPage() {
 
       navigate(destination);
     } catch (err) {
-      setError(
-        err.message || "Login failed. Please check your details."
-      );
+      setError(err.message || "Login failed. Please check your details.");
     } finally {
       setLoading(false);
     }
@@ -110,213 +106,89 @@ export default function AuthPage() {
         role: "farmer",
       });
     } catch (err) {
-      setError(
-        err.message || "Registration failed. Please try again."
-      );
+      setError(err.message || "Registration failed. Please try again.");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="py-8">
-      <div className="mb-10">
-        <h1 className="text-3xl font-bold text-gray-900">
-          Your marketplace account
-        </h1>
-        <p className="mt-3 text-gray-600">
-          Farmers sell their harvest. Buyers order directly
-          from growers.
-        </p>
-      </div>
+    <div className="flex min-h-[70vh] items-center justify-center py-10">
+      <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-lg sm:p-9">
+        <div className="mb-8 text-center">
+          <h1 className="text-3xl font-bold text-green-800">
+            {isRegister ? "Create an Account" : "Welcome Back"}
+          </h1>
 
-      {error && (
-        <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
-          {error}
-        </div>
-      )}
-
-      {message && (
-        <div className="mb-6 rounded-lg border border-green-200 bg-green-50 p-4 text-green-700">
-          {message}
-        </div>
-      )}
-
-      <div className="grid items-start gap-8 lg:grid-cols-2">
-        {/* Login form */}
-        <section
-          id="login"
-          className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm md:p-8"
-        >
-          <h2 className="text-2xl font-bold text-green-800">
-            Login
-          </h2>
           <p className="mt-2 text-gray-600">
-            Already have an account?
+            {isRegister
+              ? "Join AgriBridge and connect with the agricultural marketplace."
+              : "Log in to continue to your AgriBridge account."}
           </p>
+        </div>
 
-          <form onSubmit={handleLogin} className="mt-8 space-y-5">
+        {error && (
+          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
+            {error}
+          </div>
+        )}
+
+        {message && (
+          <div className="mb-6 rounded-lg border border-green-200 bg-green-50 p-4 text-green-700">
+            {message}
+          </div>
+        )}
+
+        {isRegister ? (
+          <form onSubmit={handleRegister} className="space-y-5">
             <div>
-              <label
-                htmlFor="login-email"
-                className="mb-2 block font-medium"
-              >
-                Email address
-              </label>
-              <input
-                id="login-email"
-                type="email"
-                required
-                className={inputClass}
-                value={login.email}
-                onChange={(e) =>
-                  setLogin({ ...login, email: e.target.value })
-                }
-                placeholder="Enter your email"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="login-password"
-                className="mb-2 block font-medium"
-              >
-                Password
-              </label>
-              <input
-                id="login-password"
-                type="password"
-                required
-                className={inputClass}
-                value={login.password}
-                onChange={(e) =>
-                  setLogin({ ...login, password: e.target.value })
-                }
-                placeholder="Enter your password"
-              />
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={login.remember}
-                  onChange={(e) =>
-                    setLogin({
-                      ...login,
-                      remember: e.target.checked,
-                    })
-                  }
-                  className="accent-green-700"
-                />
-                Remember me
-              </label>
-
-              <span className="text-gray-500">
-                Forgot password?
-              </span>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-lg bg-green-700 px-5 py-3 font-semibold text-white transition hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {loading ? "Please wait..." : "Login →"}
-            </button>
-          </form>
-
-          <p className="mt-8 text-sm text-gray-600">
-            New here?{" "}
-            <a
-              href="#register"
-              className="font-semibold text-green-700 hover:underline"
-            >
-              Create an account →
-            </a>
-          </p>
-
-          <p className="mt-12 text-sm italic text-gray-500">
-            One account, role-based dashboard.
-          </p>
-        </section>
-
-        {/* Registration form */}
-        <section
-          id="register"
-          className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm md:p-8"
-        >
-          <h2 className="text-2xl font-bold text-green-800">
-            Create an account
-          </h2>
-
-          <form onSubmit={handleRegister} className="mt-8 space-y-5">
-            <div>
-              <label
-                htmlFor="register-name"
-                className="mb-2 block font-medium"
-              >
-                Full name
+              <label htmlFor="register-name" className="mb-2 block font-medium">
+                Full Name
               </label>
               <input
                 id="register-name"
                 type="text"
                 required
                 className={inputClass}
+                placeholder="Enter your full name"
                 value={register.fullName}
                 onChange={(e) =>
-                  setRegister({
-                    ...register,
-                    fullName: e.target.value,
-                  })
+                  setRegister({ ...register, fullName: e.target.value })
                 }
-                placeholder="Enter your full name"
               />
             </div>
 
             <div>
-              <label
-                htmlFor="register-phone"
-                className="mb-2 block font-medium"
-              >
-                Phone number
+              <label htmlFor="register-phone" className="mb-2 block font-medium">
+                Phone Number
               </label>
               <input
                 id="register-phone"
                 type="tel"
                 required
                 className={inputClass}
+                placeholder="+254 700 000 000"
                 value={register.phone}
                 onChange={(e) =>
-                  setRegister({
-                    ...register,
-                    phone: e.target.value,
-                  })
+                  setRegister({ ...register, phone: e.target.value })
                 }
-                placeholder="e.g. +254 700 000 000"
               />
             </div>
 
             <div>
-              <label
-                htmlFor="register-email"
-                className="mb-2 block font-medium"
-              >
-                Email address
+              <label htmlFor="register-email" className="mb-2 block font-medium">
+                Email Address
               </label>
               <input
                 id="register-email"
                 type="email"
                 required
                 className={inputClass}
+                placeholder="Enter your email"
                 value={register.email}
                 onChange={(e) =>
-                  setRegister({
-                    ...register,
-                    email: e.target.value,
-                  })
+                  setRegister({ ...register, email: e.target.value })
                 }
-                placeholder="Enter your email"
               />
             </div>
 
@@ -333,55 +205,44 @@ export default function AuthPage() {
                 minLength={8}
                 required
                 className={inputClass}
+                placeholder="Minimum 8 characters"
                 value={register.password}
                 onChange={(e) =>
-                  setRegister({
-                    ...register,
-                    password: e.target.value,
-                  })
+                  setRegister({ ...register, password: e.target.value })
                 }
-                placeholder="Minimum 8 characters"
               />
             </div>
 
             <fieldset>
-              <legend className="mb-3 font-medium">
-                I am a:
-              </legend>
+              <legend className="mb-3 font-medium">I am a:</legend>
 
-              <div className="space-y-3">
-                <label className="flex items-center gap-3">
+              <div className="flex gap-6">
+                <label className="flex items-center gap-2">
                   <input
                     type="radio"
                     name="role"
                     value="farmer"
                     checked={register.role === "farmer"}
                     onChange={(e) =>
-                      setRegister({
-                        ...register,
-                        role: e.target.value,
-                      })
+                      setRegister({ ...register, role: e.target.value })
                     }
                     className="accent-green-700"
                   />
-                  Farmer — list and sell produce
+                  Farmer
                 </label>
 
-                <label className="flex items-center gap-3">
+                <label className="flex items-center gap-2">
                   <input
                     type="radio"
                     name="role"
                     value="buyer"
                     checked={register.role === "buyer"}
                     onChange={(e) =>
-                      setRegister({
-                        ...register,
-                        role: e.target.value,
-                      })
+                      setRegister({ ...register, role: e.target.value })
                     }
                     className="accent-green-700"
                   />
-                  Buyer — shop and place orders
+                  Buyer
                 </label>
               </div>
             </fieldset>
@@ -394,19 +255,79 @@ export default function AuthPage() {
               {loading ? "Please wait..." : "Create Account →"}
             </button>
           </form>
+        ) : (
+          <form onSubmit={handleLogin} className="space-y-5">
+            <div>
+              <label htmlFor="login-email" className="mb-2 block font-medium">
+                Email Address
+              </label>
+              <input
+                id="login-email"
+                type="email"
+                required
+                className={inputClass}
+                placeholder="Enter your email"
+                value={login.email}
+                onChange={(e) =>
+                  setLogin({ ...login, email: e.target.value })
+                }
+              />
+            </div>
 
-          <p className="mt-8 text-sm text-gray-600">
-            Already registered?{" "}
-            <a
-              href="#login"
-              className="font-semibold text-green-700 hover:underline"
+            <div>
+              <label
+                htmlFor="login-password"
+                className="mb-2 block font-medium"
+              >
+                Password
+              </label>
+              <input
+                id="login-password"
+                type="password"
+                required
+                className={inputClass}
+                placeholder="Enter your password"
+                value={login.password}
+                onChange={(e) =>
+                  setLogin({ ...login, password: e.target.value })
+                }
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-lg bg-green-700 px-5 py-3 font-semibold text-white transition hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Use Login
-            </a>
-          </p>
-        </section>
+              {loading ? "Please wait..." : "Log In →"}
+            </button>
+          </form>
+        )}
+
+        <div className="mt-8 border-t border-gray-200 pt-6 text-center text-sm text-gray-600">
+          {isRegister ? (
+            <p>
+              Already have an account?{" "}
+              <Link
+                to="/login"
+                className="font-semibold text-green-700 hover:underline"
+              >
+                Log In
+              </Link>
+            </p>
+          ) : (
+            <p>
+              Don't have an account?{" "}
+              <Link
+                to="/register"
+                className="font-semibold text-green-700 hover:underline"
+              >
+                Sign Up
+              </Link>
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );
 }
-

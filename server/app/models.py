@@ -1,5 +1,16 @@
-from sqlalchemy import Numeric
-from extensions import db
+from datetime import datetime
+from sqlalchemy import Numeric, CheckConstraint
+from app.extensions import db, bcrypt
+
+
+class Role(db.Model):
+    __tablename__="roles"
+
+    role_id=db.Column(db.Integer, primary_key=True)
+    role_name=db.Column(db.Text, nullable=False, unique=True)
+    description=db.Column(db.Text)
+    users=db.relationship("User", back_populates="role")
+
 
 
 class User(db.Model):
@@ -9,11 +20,61 @@ class User(db.Model):
     email = db.Column(db.Text, nullable=False, unique=True)
     password_hash = db.Column(db.Text, nullable=False)
     phone_number = db.Column(db.Text, unique=True)
-    role = db.Column(db.Text, nullable=False)
 
-    farmer_profile = db.relationship("FarmerProfile", back_populates="user", uselist=False)
-    buyer_profile = db.relationship("BuyerProfile", back_populates="user", uselist=False)
+    role_id = db.Column(
+        db.Integer,
+        db.ForeignKey("roles.role_id"),
+        nullable=False
+    )
 
+    def set_password(self, password):
+        self.password_hash = bcrypt.generate_password_hash(password).decode("utf-8")
+
+    def check_password(self, password):
+        return bcrypt.check_password_hash(self.password_hash, password)
+
+    farmer_profile = db.relationship(
+        "FarmerProfile",
+        back_populates="user",
+        uselist=False
+    )
+
+    buyer_profile = db.relationship(
+        "BuyerProfile",
+        back_populates="user",
+        uselist=False
+    )
+
+    role = db.relationship("Role", back_populates="users")
+    admin = db.relationship("Admin", back_populates="user", uselist=False)
+    field_officer = db.relationship("FieldOfficer", back_populates="user", uselist=False)
+
+
+class Admin(db.Model):
+    __tablename__ = "admins"
+    admin_id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.user_id"),
+        nullable=False,
+        unique=True
+    )
+    status = db.Column(
+        db.Text,
+        nullable=False,
+        default="active"
+    )
+    user = db.relationship("User", back_populates="admin")
+    assigned_verifications = db.relationship(
+        "FarmerVerification",
+        foreign_keys="FarmerVerification.assigned_by_admin_id",
+        back_populates="assigned_by_admin"
+    )
+    reviewed_verifications = db.relationship(
+        "FarmerVerification",
+        foreign_keys="FarmerVerification.reviewed_by_admin_id",
+        back_populates="reviewed_by_admin"
+    )
 
 class FarmerProfile(db.Model):
     __tablename__ = "farmer_profiles"
@@ -22,11 +83,13 @@ class FarmerProfile(db.Model):
     farm_name = db.Column(db.Text, nullable=False)
     location = db.Column(db.Text, nullable=False)
     description = db.Column(db.Text)
+    verification_status = db.Column(db.Text, nullable=False, default="pending")
 
     user = db.relationship("User", back_populates="farmer_profile")
     products = db.relationship("Product", back_populates="farmer")
     request_responses = db.relationship("RequestResponse", back_populates="farmer")
     orders = db.relationship("Order", back_populates="farmer")
+    verifications = db.relationship("FarmerVerification", back_populates="farmer", cascade="all, delete-orphan")
 
 
 class BuyerProfile(db.Model):
@@ -40,6 +103,107 @@ class BuyerProfile(db.Model):
     user = db.relationship("User", back_populates="buyer_profile")
     requests = db.relationship("BuyerRequest", back_populates="buyer")
     orders = db.relationship("Order", back_populates="buyer")
+
+class FieldOfficer(db.Model):
+    __tablename__ = "field_officers"
+
+    field_officer_id = db.Column(db.Integer, primary_key=True)
+
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.user_id"),
+        nullable=False,
+        unique=True
+    )
+
+    staff_number = db.Column(
+        db.Text,
+        nullable=False,
+        unique=True
+    )
+
+    status = db.Column(
+        db.Text,
+        nullable=False,
+        default="active"
+    )
+
+    user = db.relationship("User", back_populates="field_officer")
+
+    verifications = db.relationship(
+        "FarmerVerification",
+        foreign_keys="FarmerVerification.field_officer_id",
+        back_populates="field_officer"
+    )
+
+class FarmerVerification(db.Model):
+    __tablename__ = "farmer_verifications"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'assigned', 'submitted', 'approved', 'rejected')",
+            name="check_verification_status"
+        ),
+        CheckConstraint(
+            "recommendation IS NULL OR recommendation IN ('approve', 'reject')",
+            name="check_verification_recommendation"
+        ),
+    )
+
+    verification_id = db.Column(db.Integer, primary_key=True)
+
+    farmer_id = db.Column(
+        db.Integer,
+        db.ForeignKey("farmer_profiles.farmer_id"),
+        nullable=False
+    )
+
+    field_officer_id = db.Column(
+        db.Integer,
+        db.ForeignKey("field_officers.field_officer_id"),
+        nullable=True
+    )
+
+    assigned_by_admin_id = db.Column(
+        db.Integer,
+        db.ForeignKey("admins.admin_id"),
+        nullable=True
+    )
+
+    recommendation = db.Column(db.Text)
+
+    status = db.Column(
+        db.Text,
+        nullable=False,
+        default="pending"
+    )
+
+    farm_location = db.Column(db.Text)
+
+    visit_date = db.Column(db.DateTime)
+
+    remarks = db.Column(db.Text)
+
+    evidence_url = db.Column(db.Text)
+
+    reviewed_by_admin_id = db.Column(
+        db.Integer,
+        db.ForeignKey("admins.admin_id"),
+        nullable=True
+    )
+
+    reviewed_at = db.Column(db.DateTime)
+
+    created_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        default=datetime.utcnow
+    )
+
+    farmer = db.relationship("FarmerProfile", back_populates="verifications")
+    field_officer = db.relationship("FieldOfficer", foreign_keys=[field_officer_id], back_populates="verifications")
+    assigned_by_admin = db.relationship("Admin", foreign_keys=[assigned_by_admin_id], back_populates="assigned_verifications")
+    reviewed_by_admin = db.relationship("Admin", foreign_keys=[reviewed_by_admin_id], back_populates="reviewed_verifications")
+
 
 
 class Category(db.Model):
