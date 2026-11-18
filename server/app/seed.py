@@ -50,7 +50,10 @@ def seed_database():
         ("Kisumu Fresh Market", "kisumu.buyer@example.com", "+254700100104", "buyer"),
         ("AgriBridge Admin", "admin@example.com", "+254700100100", "admin"),
     )
-    roles = {name: _upsert(Role, {"name": name}, {}) for name in ("admin", "farmer", "buyer")}
+    roles = {
+        name: _upsert(Role, {"role_name": name}, {})
+        for name in ("admin", "farmer", "buyer")
+    }
     users = {}
     for full_name, email, phone, role in people:
         user = db.session.scalar(select(User).filter_by(email=email))
@@ -59,7 +62,7 @@ def seed_database():
                 full_name=full_name,
                 email=email,
                 phone_number=phone,
-                role=roles[role],
+                role_id=roles[role].role_id,
             )
             user.set_password(SEED_PASSWORD)
             db.session.add(user)
@@ -67,7 +70,7 @@ def seed_database():
         else:
             user.full_name = full_name
             user.phone_number = phone
-            user.role = roles[role]
+            user.role_id = roles[role].role_id
         users[email] = user
 
     _upsert(Admin, {"user_id": users["admin@example.com"].user_id}, {})
@@ -169,7 +172,7 @@ def seed_database():
         Payment,
         {"transaction_reference": payment_ref},
         {"order_id": order.order_id, "payment_method": "M-Pesa",
-         "amount": Decimal("1400.00"), "payment_status": "completed",
+         "amount": Decimal("1400.00"), "payment_status": "paid",
          "paid_at": datetime.now(timezone.utc) - timedelta(days=1)},
     )
     _upsert(
@@ -187,6 +190,7 @@ def register_seed_command(app):
         if app.config.get("ENVIRONMENT", "development").lower() == "production":
             raise click.ClickException("Sample seeding is disabled in production.")
         try:
+            db.create_all()
             seed_database()
         except Exception:
             db.session.rollback()
