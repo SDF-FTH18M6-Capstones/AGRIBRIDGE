@@ -125,7 +125,6 @@ def test_valid_farmer_request_response():
     schema = RequestResponseSchema()
 
     data = {
-        "request_id": 1,
         "message": "I have fresh tomatoes available.",
         "offered_price": "120.00",
         "available_quantity": "20.000"
@@ -133,7 +132,7 @@ def test_valid_farmer_request_response():
 
     result = schema.load(data)
 
-    assert result["request_id"] == 1
+    assert "request_id" not in result
     assert result["offered_price"] == Decimal("120.00")
     assert result["available_quantity"] == Decimal("20.000")
 
