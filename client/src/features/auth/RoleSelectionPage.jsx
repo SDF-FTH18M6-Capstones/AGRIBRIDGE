@@ -63,7 +63,7 @@ export default function RoleSelectionPage() {
           {/* FARMER CARD */}
           <section className="flex flex-col rounded-2xl border border-green-100 bg-white p-7 shadow-sm">
             <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-green-100 text-3xl">
-              🌱
+              
             </div>
 
             <h2 className="text-2xl font-bold text-green-950">
@@ -94,7 +94,7 @@ export default function RoleSelectionPage() {
           {/* BUYER CARD */}
           <section className="flex flex-col rounded-2xl border border-green-100 bg-white p-7 shadow-sm">
             <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-green-100 text-3xl">
-              🛒
+              
             </div>
 
             <h2 className="text-2xl font-bold text-green-950">
