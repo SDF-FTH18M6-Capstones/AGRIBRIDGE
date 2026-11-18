@@ -11,6 +11,7 @@ from app.routes.requests import requests_bp
 from app.routes.responses import responses_bp
 from app.routes.reviews import reviews_bp
 from app.routes.health import health_bp
+from app.seed import register_seed_command
 from app import models
 
 
@@ -21,17 +22,16 @@ def create_app(test_config=None):
     if test_config:
         app.config.update(test_config)
 
-        if not app.config.get("TESTING"):
-            required_secrets = ("SECRET_KEY", "JWT_SECRET_KEY")
-            missing_secrets = [
-            key for key in required_secrets
-            if not app.config.get(key)
-            ]
+    if not app.config.get("TESTING"):
+        required_secrets = ("SECRET_KEY", "JWT_SECRET_KEY")
+        missing_secrets = [
+            key for key in required_secrets if not app.config.get(key)
+        ]
 
-            if missing_secrets:
-                raise RuntimeError(
-                    f"Missing required environment variables: {', '.join(missing_secrets)}"
-                )
+        if missing_secrets:
+            raise RuntimeError(
+                f"Missing required environment variables: {', '.join(missing_secrets)}"
+            )
 
     if app.config.get("TESTING") and not app.config.get("SQLALCHEMY_DATABASE_URI"):
         app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
