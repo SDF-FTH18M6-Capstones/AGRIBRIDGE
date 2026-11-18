@@ -11,12 +11,21 @@ import BuyerDashboard from "../features/buyer/BuyerDashboard.jsx";
 import AuthPage from "../features/auth/AuthPage.jsx";
 import CheckoutPage from "../features/checkout/CheckoutPage.jsx";
 
+//Login & Signup Page
+import LoginPage from "../features/auth/LoginPage.jsx";
+import SignUpPage from "../features/auth/SignUpPage.jsx";
+
+//Protected Route
+import ProtectedRoute from "../components/auth/ProtectedRoute.jsx";
+
+// Role Selection Page
+import RoleSelectionPage from "../features/auth/RoleSelectionPage.jsx";
+
 // Marketplace
 import MarketplacePage from "../features/marketplace/MarketplacePage.jsx";
 
 // Farmer dashboard
 import FarmerDashboard from "../features/farmer/FarmerDashboard.jsx";
-
 
 
 // Admin dashboard
@@ -37,9 +46,6 @@ import ProfilePage from "./ProfilePage.jsx";
 import TrackOrdersPage from "./TrackOrdersPage.jsx";
 
 import {
-  
-  Login,
-  Register,
   MyProduce,
   BuyerRequests,
   Orders,
@@ -57,8 +63,9 @@ const router = createBrowserRouter([
       { index: true, element: <HomePage /> },
       { path: "marketplace", element: <MarketplacePage /> },
       { path: "about", element: <AboutPage /> },
-      { path: "login", element: <Login /> },
-      { path: "register", element: <Register /> },
+      { path: "login", element: <LoginPage /> },
+      { path: "register", element: <SignUpPage /> },
+      {path: "select-role",element: <RoleSelectionPage />,},
       { path: "auth", element: <AuthPage /> },
       { path: "checkout", element: <CheckoutPage /> },
     ],
@@ -67,7 +74,11 @@ const router = createBrowserRouter([
   // Farmer dashboard
   {
     path: "/dashboard",
-    element: <FarmerDashboard />,
+    element:  (
+      <ProtectedRoute allowedRoles={["farmer"]}>
+        <FarmerDashboard />
+      </ProtectedRoute>
+      ),
     children: [
       { index: true, element: <MyProduce /> },
       { path: "produce", element: <MyProduce /> },
@@ -82,7 +93,11 @@ const router = createBrowserRouter([
   // Buyer dashboard
   {
   path: "/buyer",
-  element: <BuyerLayout />,
+  element: (
+    <ProtectedRoute allowedRoles={["buyer"]}>
+      <BuyerLayout />
+    </ProtectedRoute>
+    ),
   children: [
     { index: true, element: <BuyerDashboard /> },
     { path: "orders", element: <Orders /> },
@@ -95,7 +110,11 @@ const router = createBrowserRouter([
   // Admin dashboard
   {
     path: "/admin",
-    element: <AdminLayout />,
+    element:  (
+      <ProtectedRoute allowedRoles={["admin"]}>
+        <AdminLayout />
+      </ProtectedRoute>
+      ),
     children: [
       { index: true, element: <AdminDashboard /> },
       { path: "farmers", element: <Farmers /> },
