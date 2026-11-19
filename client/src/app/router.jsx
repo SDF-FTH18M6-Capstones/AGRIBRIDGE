@@ -14,9 +14,7 @@ import CheckoutPage from "../features/checkout/CheckoutPage.jsx";
 
 // Public pages
 import HomePage from "../features/marketplace/HomePage.jsx";
-import ProductManagement from "../features/marketplace/ProductManagement.jsx";
 import MarketplacePage from "../features/marketplace/MarketplacePage.jsx";
-import ProductDetailsPage from "../features/marketplace/ProductDetailsPage.jsx";
 import AboutPage from "./AboutPage.jsx";
 import ProfilePage from "./ProfilePage.jsx";
 import TrackOrdersPage from "./TrackOrdersPage.jsx";
@@ -74,14 +72,14 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <HomePage /> },
       { path: "marketplace", element: <MarketplacePage /> },
-      { path: "marketplace/:id", element: <ProductDetailsPage /> },
+      { path: "marketplace/:id", element: <Navigate to="/marketplace" replace /> },
       { path: "about", element: <AboutPage /> },
       { path: "login", element: <LoginPage /> },
       { path: "register", element: <SignUpPage /> },
       { path: "select-role", element: <RoleSelectionPage /> },
       { path: "auth", element: <AuthPage /> },
       { path: "checkout", element: <CheckoutPage /> },
-      { path: "my-products", element: <ProductManagement /> },
+      { path: "my-products", element: <Navigate to="/farmer/products" replace /> },
     ],
   },
 

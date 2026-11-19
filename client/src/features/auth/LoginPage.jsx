@@ -2,12 +2,10 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import useAuth from "../../hooks/useAuth.js";
+import api from "../../services/api.js";
 
 const inputClass =
   "w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-green-700 focus:ring-2 focus:ring-green-100";
-
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:5000";
 
 export default function LoginPage() {
   const [form, setForm] = useState({
@@ -55,24 +53,14 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email,
-          password: form.password,
-        }),
+      // Use the centralized Axios client.
+      // The base URL already contains /api, so only use /login here.
+      const response = await api.post("/login", {
+        email,
+        password: form.password,
       });
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          result.error?.message || "Login failed. Please try again."
-        );
-      }
+      const result = response.data;
 
       const token = result.data?.access_token;
       const user = result.data?.user;
@@ -99,13 +87,9 @@ export default function LoginPage() {
         navigate("/select-role", { replace: true });
       }
     } catch (err) {
-      if (err instanceof TypeError) {
-        setError(
-          "Unable to connect to the server. Please check that Flask is running."
-        );
-      } else {
-        setError(err.message || "Login failed. Please try again.");
-      }
+      setError(
+        err.message || "Login failed. Please check your details and try again."
+      );
     } finally {
       setIsSubmitting(false);
     }
