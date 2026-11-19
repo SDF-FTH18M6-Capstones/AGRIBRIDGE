@@ -1,5 +1,3 @@
-"""Repeatable sample data for local AgriBridge development."""
-
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
@@ -29,7 +27,6 @@ SEED_PASSWORD = "AgriBridge123!"
 
 
 def _upsert(model, lookup, values):
-    """Find a sample record by its stable key, inserting or refreshing it."""
     record = db.session.scalar(select(model).filter_by(**lookup))
     if record is None:
         record = model(**lookup, **values)
@@ -42,7 +39,6 @@ def _upsert(model, lookup, values):
 
 
 def seed_database():
-    """Populate the current database without deleting existing records."""
     people = (
         ("Amina Wanjiku", "amina.farmer@example.com", "+254700100101", "farmer"),
         ("Peter Mwangi", "peter.farmer@example.com", "+254700100102", "farmer"),
@@ -186,7 +182,6 @@ def seed_database():
 def register_seed_command(app):
     @app.cli.command("seed")
     def seed_command():
-        """Add repeatable sample data to a migrated development database."""
         if app.config.get("ENVIRONMENT", "development").lower() == "production":
             raise click.ClickException("Sample seeding is disabled in production.")
         try:
