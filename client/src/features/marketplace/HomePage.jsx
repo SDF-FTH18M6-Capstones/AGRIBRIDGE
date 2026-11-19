@@ -12,7 +12,7 @@ const featuredProducts = [
     county: "Nakuru",
     harvested: "12 Nov 2026",
     image:
-      "https://images.unsplash.com/photo-1546470427-e5b89c8c7f4c?w=700",
+      "https://images.unsplash.com/photo-1741517287380-cf3a9ef75be1?auto=format&fit=crop&w=700&q=80",
   },
   {
     id: 2,
@@ -33,7 +33,8 @@ const featuredProducts = [
     quantity: 500,
     county: "Uasin Gishu",
     harvested: "25 Oct 2026",
-    image: "",
+    image:
+      "https://images.unsplash.com/photo-1551754655-cd27e38d2076?auto=format&fit=crop&w=700&q=80",
   },
   {
     id: 4,
@@ -43,37 +44,50 @@ const featuredProducts = [
     quantity: 300,
     county: "Nyandarua",
     harvested: "Pending harvest",
-    image: "",
+    image:
+      "https://images.unsplash.com/photo-1518977676601-b53f82aba655?auto=format&fit=crop&w=700&q=80",
   },
 ];
 
 const categories = [
-  { name: "Vegetables", icon: "🥬" },
-  { name: "Fruits", icon: "🥭" },
-  { name: "Cereals and grains", icon: "🌽" },
-  { name: "Tubers", icon: "🥔" },
+  {
+    name: "Vegetables",
+    icon: "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=500&q=80",
+  },
+  {
+    name: "Fruits",
+    icon: "https://images.unsplash.com/photo-1619566636858-adf3ef46400b?auto=format&fit=crop&w=500&q=80",
+  },
+  {
+    name: "Cereals and grains",
+    icon: "https://images.unsplash.com/photo-1551754655-cd27e38d2076?auto=format&fit=crop&w=500&q=80",
+  },
+  {
+    name: "Tubers",
+    icon: "https://images.unsplash.com/photo-1518977676601-b53f82aba655?auto=format&fit=crop&w=500&q=80",
+  },
 ];
 
 const benefits = [
   {
     title: "Verified farmers",
     description: "Discover produce from farmers who have completed verification.",
-    icon: "✓",
+    icon: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=300&q=80",
   },
   {
     title: "Transparent pricing",
     description: "View prices and available quantities before ordering.",
-    icon: "₭",
+    icon: "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=300&q=80",
   },
   {
     title: "Direct connections",
     description: "Connect farmers and buyers through one marketplace.",
-    icon: "↔",
+    icon: "https://images.unsplash.com/photo-1521737711867-e3b97375f902?auto=format&fit=crop&w=300&q=80",
   },
   {
     title: "M-Pesa payments",
     description: "A familiar payment option for agricultural transactions.",
-    icon: "▣",
+    icon: "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9?auto=format&fit=crop&w=300&q=80",
   },
 ];
 
@@ -213,12 +227,12 @@ export default function HomePage() {
               to={`/marketplace?category=${encodeURIComponent(category.name)}`}
               className="group rounded-2xl border border-green-100 bg-white p-6 text-center shadow-sm transition hover:-translate-y-1 hover:border-green-300 hover:shadow-md"
             >
-              <span
-                aria-hidden="true"
-                className="text-4xl"
-              >
-                {category.icon}
-              </span>
+              <img
+                src={category.icon}
+                alt={category.name}
+                className="mx-auto h-20 w-full rounded-xl object-cover"
+                loading="lazy"
+              />
               <h3 className="mt-4 font-bold text-green-950 group-hover:text-green-700">
                 {category.name}
               </h3>
@@ -339,8 +353,13 @@ export default function HomePage() {
                 key={benefit.title}
                 className="rounded-2xl bg-white p-6 shadow-sm"
               >
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-100 text-2xl font-bold text-green-800">
-                  {benefit.icon}
+                <div className="h-16 w-16 overflow-hidden rounded-xl bg-green-100">
+                  <img
+                    src={benefit.icon}
+                    alt={benefit.title}
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                  />
                 </div>
                 <h3 className="mt-5 font-bold text-green-950">
                   {benefit.title}
