@@ -7,3 +7,10 @@ db = SQLAlchemy()
 migrate = Migrate()
 jwt = JWTManager()
 bcrypt = Bcrypt()
+
+REVOKED_JTIS = set()
+
+
+@jwt.token_in_blocklist_loader
+def check_if_token_revoked(jwt_header, jwt_payload):
+    return jwt_payload["jti"] in REVOKED_JTIS
