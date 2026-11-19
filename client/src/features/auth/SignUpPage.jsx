@@ -1,6 +1,7 @@
 
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import api from "../../services/api.js";
 
 const inputClass =
   "w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-green-700 focus:ring-2 focus:ring-green-100";
@@ -12,11 +13,14 @@ export default function SignUpPage() {
     phone: "",
     password: "",
     confirmPassword: "",
+    role: "",
     acceptTerms: false,
   });
 
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [loading, setLoading] = useState(false);
 
   function handleChange(event) {
     const { name, value, type, checked } = event.target;
@@ -27,10 +31,38 @@ export default function SignUpPage() {
     }));
 
     setError("");
+    setSuccess("");
   }
 
-  function handleSubmit(event) {
+  function getErrorMessage(error) {
+    const data = error.response?.data;
+
+    if (typeof error.message === "string" && error.message !== "Request failed with status code 400") {
+      return error.message;
+    }
+
+    if (typeof data?.error?.message === "string") {
+      return data.error.message;
+    }
+
+    if (typeof data?.message === "string") {
+      return data.message;
+    }
+
+    const fields = data?.error?.fields;
+
+    if (fields && typeof fields === "object") {
+      return Object.values(fields).flat().join(" ");
+    }
+
+    return "Registration failed. Please try again.";
+  }
+
+  async function handleSubmit(event) {
     event.preventDefault();
+
+    setError("");
+    setSuccess("");
 
     if (!form.fullName.trim()) {
       setError("Please enter your full name.");
@@ -57,16 +89,45 @@ export default function SignUpPage() {
       return;
     }
 
+    if (!form.role) {
+      setError("Please select whether you are a farmer or buyer.");
+      return;
+    }
+
     if (!form.acceptTerms) {
       setError("Please accept the Terms and Privacy Policy.");
       return;
     }
 
-    // TODO: Connect to backend registration endpoint.
-    // Do not store passwords in browser storage.
-    setError(
-      "Registration is not connected to the backend yet."
-    );
+    setLoading(true);
+
+    try {
+      const response = await api.post("/register", {
+        full_name: form.fullName.trim(),
+        email: form.email.trim().toLowerCase(),
+        phone_number: form.phone.replace(/\s+/g, ""),
+        password: form.password,
+        role: form.role,
+      });
+
+      setSuccess(
+        response.data.message || "Registration successful! You can now log in."
+      );
+
+      setForm({
+        fullName: "",
+        email: "",
+        phone: "",
+        password: "",
+        confirmPassword: "",
+        role: "",
+        acceptTerms: false,
+      });
+    } catch (error) {
+      setError(getErrorMessage(error));
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -85,25 +146,18 @@ export default function SignUpPage() {
           </h1>
 
           <p className="mt-2 font-medium text-green-700">
-            Step 1 of 2: Your details
+            Register with AgriBridge
           </p>
 
           <p className="mt-2 text-sm text-gray-600">
-            You will choose how to use AgriBridge
-            after you log in.
+            Enter your details to get started.
           </p>
         </div>
 
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm sm:p-9">
-          <form
-            onSubmit={handleSubmit}
-            className="space-y-5"
-          >
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label
-                htmlFor="signup-name"
-                className="mb-2 block text-sm font-semibold"
-              >
+              <label htmlFor="signup-name" className="mb-2 block text-sm font-semibold">
                 Full name
               </label>
 
@@ -121,10 +175,7 @@ export default function SignUpPage() {
             </div>
 
             <div>
-              <label
-                htmlFor="signup-email"
-                className="mb-2 block text-sm font-semibold"
-              >
+              <label htmlFor="signup-email" className="mb-2 block text-sm font-semibold">
                 Email address
               </label>
 
@@ -142,10 +193,7 @@ export default function SignUpPage() {
             </div>
 
             <div>
-              <label
-                htmlFor="signup-phone"
-                className="mb-2 block text-sm font-semibold"
-              >
+              <label htmlFor="signup-phone" className="mb-2 block text-sm font-semibold">
                 Phone number (M-Pesa)
               </label>
 
@@ -163,10 +211,26 @@ export default function SignUpPage() {
             </div>
 
             <div>
-              <label
-                htmlFor="signup-password"
-                className="mb-2 block text-sm font-semibold"
+              <label htmlFor="signup-role" className="mb-2 block text-sm font-semibold">
+                I want to register as
+              </label>
+
+              <select
+                id="signup-role"
+                name="role"
+                required
+                className={inputClass}
+                value={form.role}
+                onChange={handleChange}
               >
+                <option value="">Choose your role</option>
+                <option value="farmer">Farmer</option>
+                <option value="buyer">Buyer</option>
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="signup-password" className="mb-2 block text-sm font-semibold">
                 Password
               </label>
 
@@ -195,10 +259,7 @@ export default function SignUpPage() {
             </div>
 
             <div>
-              <label
-                htmlFor="signup-confirm"
-                className="mb-2 block text-sm font-semibold"
-              >
+              <label htmlFor="signup-confirm" className="mb-2 block text-sm font-semibold">
                 Confirm password
               </label>
 
@@ -239,29 +300,36 @@ export default function SignUpPage() {
               </p>
             )}
 
+            {success && (
+              <div
+                role="status"
+                className="rounded-lg bg-green-50 p-3 text-sm text-green-800"
+              >
+                {success}
+                <p className="mt-2">
+                  <Link to="/login" className="font-bold underline">
+                    Go to login
+                  </Link>
+                </p>
+              </div>
+            )}
+
             <button
               type="submit"
-              className="w-full rounded-lg bg-green-800 px-5 py-3 font-semibold text-white transition hover:bg-green-900"
+              disabled={loading}
+              className="w-full rounded-lg bg-green-800 px-4 py-3 font-bold text-white transition hover:bg-green-900 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Create account
+              {loading ? "Creating account..." : "Create account"}
             </button>
           </form>
 
-          <div className="mt-6 border-t border-gray-200 pt-6 text-center text-sm text-gray-600">
-            Already registered?{" "}
-            <Link
-              to="/login"
-              className="font-semibold text-green-800 hover:underline"
-            >
-              Login
+          <p className="mt-6 text-center text-sm text-gray-600">
+            Already have an account?{" "}
+            <Link to="/login" className="font-bold text-green-800 hover:underline">
+              Log in
             </Link>
-          </div>
+          </p>
         </div>
-
-        <p className="mt-5 text-center text-xs text-gray-500">
-          Next: Optional phone verification, then login.
-          Admin accounts cannot be created here.
-        </p>
       </div>
     </main>
   );
