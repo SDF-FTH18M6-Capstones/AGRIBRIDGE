@@ -1,9 +1,8 @@
+
 // Chan has done Marketplace. I will not be pushing it, I have only used this one so Mktplace doesnt refuse to build
 
-import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import {  useSearchParams } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 
 const products = [
   {
@@ -20,7 +19,8 @@ const products = [
     harvested: "2026-11-12",
     minimumOrder: 1,
     description: "Fresh, locally grown tomatoes.",
-    image: "https://images.unsplash.com/photo-1546470427-e5b89c8c7f4c?w=600",
+    image:
+      "https://images.unsplash.com/photo-1748843328433-1c8a51513f6e?w=600&q=80",
   },
   {
     id: 2,
@@ -36,7 +36,8 @@ const products = [
     harvested: "2026-11-10",
     minimumOrder: 2,
     description: "Sweet, ripe mangoes from Makueni.",
-    image: "https://images.unsplash.com/photo-1553279768-865429fa0078?w=600",
+    image:
+      "https://images.unsplash.com/photo-1605027990121-cbae9e0642df?w=600&q=80",
   },
   {
     id: 3,
@@ -52,7 +53,8 @@ const products = [
     harvested: "2026-10-25",
     minimumOrder: 10,
     description: "Clean, dried maize ready for sale.",
-    image: "",
+    image:
+      "https://images.unsplash.com/photo-1770617475595-f80b09cbbecd?w=600&q=80",
   },
   {
     id: 4,
@@ -68,7 +70,8 @@ const products = [
     harvested: "",
     minimumOrder: 5,
     description: "Quality Irish potatoes grown in Nyandarua.",
-    image: "",
+    image:
+      "https://upload.wikimedia.org/wikipedia/commons/3/34/Irish_Potato_Kenya.jpg",
   },
   {
     id: 5,
@@ -84,7 +87,8 @@ const products = [
     harvested: "2026-11-13",
     minimumOrder: 1,
     description: "Fresh leafy greens harvested locally.",
-    image: "",
+    image:
+      "https://greenspoon.co.ke/wp-content/uploads/2021/09/3J2A8889-720x480.jpg",
   },
   {
     id: 6,
@@ -100,7 +104,8 @@ const products = [
     harvested: "",
     minimumOrder: 3,
     description: "Sweet potatoes from Bungoma farms.",
-    image: "",
+    image:
+      "https://images.unsplash.com/photo-1673533537845-7f7498faf85f?w=600&q=80",
   },
 ];
 
@@ -120,10 +125,15 @@ const inputClass =
 
 export default function MarketplacePage() {
   const [searchParams] = useSearchParams();
+
   const [search, setSearch] = useState(searchParams.get("q") || "");
   const [query, setQuery] = useState(searchParams.get("q") || "");
-  const [category, setCategory] = useState(searchParams.get("category") || "All categories");
-  const [county, setCounty] = useState(searchParams.get("county") || "");
+  const [category, setCategory] = useState(
+    searchParams.get("category") || "All categories"
+  );
+  const [county, setCounty] = useState(
+    searchParams.get("county") || ""
+  );
   const [availability, setAvailability] = useState("All");
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [minimumQuantity, setMinimumQuantity] = useState("");
@@ -134,18 +144,17 @@ export default function MarketplacePage() {
   const [selectedProduct, setSelectedProduct] = useState(null);
 
   useEffect(() => {
-  const nextQuery = searchParams.get("q") || "";
-  const nextCategory =
-    searchParams.get("category") || "All categories";
-  const nextCounty = searchParams.get("county") || "";
+    const nextQuery = searchParams.get("q") || "";
+    const nextCategory =
+      searchParams.get("category") || "All categories";
+    const nextCounty = searchParams.get("county") || "";
 
-  setSearch(nextQuery);
-  setQuery(nextQuery);
-  setCategory(nextCategory);
-  setCounty(nextCounty);
-  setPage(1);
-}, [searchParams]);
-
+    setSearch(nextQuery);
+    setQuery(nextQuery);
+    setCategory(nextCategory);
+    setCounty(nextCounty);
+    setPage(1);
+  }, [searchParams]);
 
   const pageSize = 6;
 
@@ -219,6 +228,7 @@ export default function MarketplacePage() {
   ]);
 
   const pageCount = Math.ceil(filteredProducts.length / pageSize);
+
   const visibleProducts = filteredProducts.slice(
     (page - 1) * pageSize,
     page * pageSize
@@ -250,9 +260,11 @@ export default function MarketplacePage() {
           <p className="mb-2 text-sm font-semibold uppercase tracking-widest text-green-700">
             Farm fresh produce
           </p>
+
           <h1 className="text-3xl font-bold text-green-950 sm:text-4xl">
             Marketplace
           </h1>
+
           <p className="mt-3 text-gray-600">
             Discover agricultural produce directly from farmers
             across Kenya.
@@ -316,6 +328,7 @@ export default function MarketplacePage() {
               <h2 className="text-lg font-bold text-green-950">
                 Filters
               </h2>
+
               <button
                 type="button"
                 onClick={resetFilters}
@@ -333,6 +346,7 @@ export default function MarketplacePage() {
                 >
                   Availability
                 </label>
+
                 <select
                   id="availability"
                   className={inputClass}
@@ -367,6 +381,7 @@ export default function MarketplacePage() {
                 >
                   Minimum available quantity
                 </label>
+
                 <input
                   id="minimumQuantity"
                   type="number"
@@ -378,6 +393,7 @@ export default function MarketplacePage() {
                     updateFilter(setMinimumQuantity)(event.target.value)
                   }
                 />
+
                 <p className="mt-1 text-xs text-gray-500">
                   Filter by available stock (units vary by product).
                 </p>
@@ -387,6 +403,7 @@ export default function MarketplacePage() {
                 <p className="mb-2 text-sm font-semibold">
                   Price range (KSh per unit)
                 </p>
+
                 <div className="grid grid-cols-2 gap-2">
                   <input
                     aria-label="Minimum price"
@@ -399,6 +416,7 @@ export default function MarketplacePage() {
                       updateFilter(setMinPrice)(event.target.value)
                     }
                   />
+
                   <input
                     aria-label="Maximum price"
                     type="number"
@@ -420,6 +438,7 @@ export default function MarketplacePage() {
                 >
                   Sort by
                 </label>
+
                 <select
                   id="sortBy"
                   className={inputClass}
@@ -443,6 +462,7 @@ export default function MarketplacePage() {
               <h2 className="text-xl font-semibold text-green-950">
                 Available produce
               </h2>
+
               <span className="text-sm text-gray-500">
                 {filteredProducts.length} products found
               </span>
@@ -453,9 +473,11 @@ export default function MarketplacePage() {
                 <h3 className="text-lg font-semibold">
                   No products found
                 </h3>
+
                 <p className="mt-2 text-gray-500">
                   Try adjusting your search or filters.
                 </p>
+
                 <button
                   type="button"
                   onClick={resetFilters}
@@ -471,18 +493,18 @@ export default function MarketplacePage() {
                     key={product.id}
                     className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition hover:shadow-md"
                   >
-                    <div className="flex h-44 items-center justify-center bg-green-50">
-                      {product.image ? (
-                        <img
-                          src={product.image}
-                          alt={product.name}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-sm text-green-700">
-                          Produce image
-                        </span>
-                      )}
+                    <div className="h-44 bg-green-50">
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        loading="lazy"
+                        className="h-full w-full object-cover"
+                        onError={(event) => {
+                          event.currentTarget.onerror = null;
+                          event.currentTarget.src =
+                            "https://images.unsplash.com/photo-1542838132-92c53300491e?w=600&q=80";
+                        }}
+                      />
                     </div>
 
                     <div className="p-5">
@@ -490,6 +512,7 @@ export default function MarketplacePage() {
                         <h3 className="text-lg font-bold">
                           {product.name}
                         </h3>
+
                         <span className="rounded-full bg-green-50 px-2 py-1 text-xs text-green-800">
                           {product.availability}
                         </span>
@@ -586,6 +609,7 @@ export default function MarketplacePage() {
                 >
                   {selectedProduct.name}
                 </h2>
+
                 <button
                   type="button"
                   aria-label="Close product details"
@@ -596,10 +620,22 @@ export default function MarketplacePage() {
                 </button>
               </div>
 
+              <img
+                src={selectedProduct.image}
+                alt={selectedProduct.name}
+                className="mt-4 h-56 w-full rounded-xl object-cover"
+                onError={(event) => {
+                  event.currentTarget.onerror = null;
+                  event.currentTarget.src =
+                    "https://images.unsplash.com/photo-1542838132-92c53300491e?w=600&q=80";
+                }}
+              />
+
               <p className="mt-4 text-xl font-bold text-green-800">
                 {formatKES(selectedProduct.price)} /{" "}
                 {selectedProduct.unit}
               </p>
+
               <p className="mt-3 text-gray-600">
                 {selectedProduct.description}
               </p>
@@ -638,6 +674,7 @@ export default function MarketplacePage() {
                 >
                   Close
                 </button>
+
                 <Link
                   to="/login"
                   className="rounded-lg bg-green-800 px-5 py-3 font-semibold text-white"
