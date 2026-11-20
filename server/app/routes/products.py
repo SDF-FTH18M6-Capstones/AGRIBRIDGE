@@ -6,11 +6,22 @@ from marshmallow import ValidationError
 from sqlalchemy import or_
 
 from app.extensions import db
-from app.models import Product, Category, FarmerProfile, PRODUCT_STATUSES
-from app.schemas.product_schema import product_schema, product_search_schema
+from app.models import (
+    Product,
+    ProductImage,
+    Category,
+    FarmerProfile,
+    PRODUCT_STATUSES,
+)
 
-
+from app.schemas.product_schema import (
+    product_schema,
+    product_search_schema,
+    ProductImageSchema,
+)
 products_bp = Blueprint("products", __name__)
+product_image_schema = ProductImageSchema(many=True)
+single_product_image_schema = ProductImageSchema()
 
 
 products = {
@@ -316,5 +327,152 @@ def delete_product(product_id):
         }), 403
 
     del products[product_id]
+
+    return "", 204
+
+
+
+@products_bp.get("/<int:product_id>/images")
+def get_product_images(product_id):
+    product = db.session.get(Product, product_id)
+
+    if product is None:
+        return jsonify({
+            "error": {
+                "code": "PRODUCT_NOT_FOUND",
+                "message": "Product not found"
+            }
+        }), 404
+
+    images = product_image_schema.dump(product.images)
+
+    return jsonify({
+        "success": True,
+        "message": "Product images retrieved successfully",
+        "data": images
+    }), 200
+
+
+@products_bp.post("/<int:product_id>/images")
+@jwt_required()
+def add_product_image(product_id):
+    user_id = int(get_jwt_identity())
+
+    farmer_profile = FarmerProfile.query.filter_by(
+        user_id=user_id
+    ).first()
+
+    if farmer_profile is None:
+        return jsonify({
+            "error": {
+                "code": "FARMER_PROFILE_NOT_FOUND",
+                "message": "Farmer profile not found"
+            }
+        }), 403
+
+    product = db.session.get(Product, product_id)
+
+    if product is None:
+        return jsonify({
+            "error": {
+                "code": "PRODUCT_NOT_FOUND",
+                "message": "Product not found"
+            }
+        }), 404
+
+    if product.farmer_id != farmer_profile.farmer_id:
+        return jsonify({
+            "error": {
+                "code": "FORBIDDEN",
+                "message": "You can only add images to your own products"
+            }
+        }), 403
+
+    data = request.get_json(silent=True)
+
+    if not isinstance(data, dict):
+        return jsonify({
+            "error": {
+                "code": "INVALID_JSON",
+                "message": "Request body must be a JSON object"
+            }
+        }), 400
+
+    try:
+        validated_data = single_product_image_schema.load(data)
+    except ValidationError as error:
+        return jsonify({
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "Invalid image data",
+                "fields": error.messages
+            }
+        }), 400
+
+    new_image = ProductImage(
+        product_id=product_id,
+        image_url=validated_data["image_url"]
+    )
+
+    db.session.add(new_image)
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "message": "Product image added successfully",
+        "data": ProductImageSchema().dump(new_image)
+    }), 201
+
+
+@products_bp.delete("/<int:product_id>/images/<int:image_id>")
+@jwt_required()
+def delete_product_image(product_id, image_id):
+    user_id = int(get_jwt_identity())
+
+    farmer_profile = FarmerProfile.query.filter_by(
+        user_id=user_id
+    ).first()
+
+    if farmer_profile is None:
+        return jsonify({
+            "error": {
+                "code": "FARMER_PROFILE_NOT_FOUND",
+                "message": "Farmer profile not found"
+            }
+        }), 403
+
+    product = db.session.get(Product, product_id)
+
+    if product is None:
+        return jsonify({
+            "error": {
+                "code": "PRODUCT_NOT_FOUND",
+                "message": "Product not found"
+            }
+        }), 404
+
+    if product.farmer_id != farmer_profile.farmer_id:
+        return jsonify({
+            "error": {
+                "code": "FORBIDDEN",
+                "message": "You can only delete images from your own products"
+            }
+        }), 403
+
+    image = ProductImage.query.filter_by(
+        image_id=image_id,
+        product_id=product_id
+    ).first()
+
+    if image is None:
+        return jsonify({
+            "error": {
+                "code": "IMAGE_NOT_FOUND",
+                "message": "Product image not found"
+            }
+        }), 404
+
+    db.session.delete(image)
+    db.session.commit()
 
     return "", 204
