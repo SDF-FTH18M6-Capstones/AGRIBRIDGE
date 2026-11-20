@@ -57,5 +57,6 @@ def create_app(test_config=None):
     app.register_blueprint(requests_bp, url_prefix="/api/requests")
     app.register_blueprint(responses_bp, url_prefix="/api")
     app.register_blueprint(reviews_bp, url_prefix="/api")
+    register_seed_command(app)
 
     return app

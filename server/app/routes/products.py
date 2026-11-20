@@ -6,33 +6,24 @@ from marshmallow import ValidationError
 from sqlalchemy import or_
 
 from app.extensions import db
-from app.models import Product, Category, FarmerProfile, PRODUCT_STATUSES
-from app.schemas.product_schema import product_schema, product_search_schema
+from app.models import (
+    Product,
+    ProductImage,
+    Category,
+    FarmerProfile,
+    PRODUCT_STATUSES,
+)
 
-
+from app.schemas.product_schema import (
+    product_schema,
+    product_list_schema,
+    product_search_schema,
+    ProductImageSchema,
+)
 products_bp = Blueprint("products", __name__)
+product_image_schema = ProductImageSchema(many=True)
+single_product_image_schema = ProductImageSchema()
 
-
-products = {
-    1: {
-        "id": 1,
-        "owner_id": "1",
-        "name": "Tomatoes",
-        "category": "Vegetables",
-        "quantity": 50,
-        "unit": "kg",
-        "price": 100
-    },
-    2: {
-        "id": 2,
-        "owner_id": "2",
-        "name": "Potatoes",
-        "category": "Vegetables",
-        "quantity": 100,
-        "unit": "kg",
-        "price": 80
-    }
-}
 
 @products_bp.get("/search")
 def search_products():
@@ -168,14 +159,16 @@ def search_products():
 
 @products_bp.get("")
 def get_products():
+    products = Product.query.order_by(Product.product_id).all()
+
     return jsonify({
-        "data": list(products.values())
+        "data": product_list_schema.dump(products)
     }), 200
 
 
 @products_bp.get("/<int:product_id>")
 def get_product(product_id):
-    product = products.get(product_id)
+    product = db.session.get(Product, product_id)
 
     if product is None:
         return jsonify({
@@ -186,14 +179,26 @@ def get_product(product_id):
         }), 404
 
     return jsonify({
-        "data": product
+        "data": product_schema.dump(product)
     }), 200
 
 
 @products_bp.post("")
 @jwt_required()
 def create_product():
-    user_id = str(get_jwt_identity())
+    user_id = int(get_jwt_identity())
+
+    farmer_profile = FarmerProfile.query.filter_by(
+        user_id=user_id
+    ).first()
+
+    if farmer_profile is None:
+        return jsonify({
+            "error": {
+                "code": "FARMER_PROFILE_NOT_FOUND",
+                "message": "Farmer profile not found"
+            }
+        }), 403
 
     data = request.get_json(silent=True)
 
@@ -216,30 +221,44 @@ def create_product():
             }
         }), 400
 
-    product_id = max(products.keys(), default=0) + 1
+    category = db.session.get(Category, validated_data["category_id"])
 
-    new_product = {
-        "id": product_id,
-        **validated_data,
-        "owner_id": user_id
-    }
+    if category is None:
+        return jsonify({
+            "error": {
+                "code": "CATEGORY_NOT_FOUND",
+                "message": "Selected category does not exist"
+            }
+        }), 404
 
-    products[product_id] = new_product
+    new_product = Product(
+        farmer_id=farmer_profile.farmer_id,
+        category_id=category.category_id,
+        **{
+            key: value
+            for key, value in validated_data.items()
+            if key != "category_id"
+        }
+    )
+
+    db.session.add(new_product)
+    db.session.commit()
 
     return jsonify({
         "message": "Product created successfully",
-        "data": new_product
+        "data": product_schema.dump(new_product)
     }), 201, {
-        "Location": f"/api/products/{product_id}"
+        "Location": f"/api/products/{new_product.product_id}"
     }
+
 
 
 @products_bp.put("/<int:product_id>")
 @jwt_required()
 def update_product(product_id):
-    user_id = str(get_jwt_identity())
+    user_id = int(get_jwt_identity())
 
-    product = products.get(product_id)
+    product = db.session.get(Product, product_id)
 
     if product is None:
         return jsonify({
@@ -249,7 +268,19 @@ def update_product(product_id):
             }
         }), 404
 
-    if product.get("owner_id") != user_id:
+    farmer_profile = FarmerProfile.query.filter_by(
+        user_id=user_id
+    ).first()
+
+    if farmer_profile is None:
+        return jsonify({
+            "error": {
+                "code": "FARMER_PROFILE_NOT_FOUND",
+                "message": "Farmer profile not found"
+            }
+        }), 403
+
+    if product.farmer_id != farmer_profile.farmer_id:
         return jsonify({
             "error": {
                 "code": "FORBIDDEN",
@@ -278,26 +309,32 @@ def update_product(product_id):
             }
         }), 400
 
-    updated_product = {
-        "id": product_id,
-        **validated_data,
-        "owner_id": product["owner_id"]
-    }
+    category = db.session.get(Category, validated_data["category_id"])
 
-    products[product_id] = updated_product
+    if category is None:
+        return jsonify({
+            "error": {
+                "code": "CATEGORY_NOT_FOUND",
+                "message": "Selected category does not exist"
+            }
+        }), 404
+
+    for key, value in validated_data.items():
+        setattr(product, key, value)
+
+    db.session.commit()
 
     return jsonify({
         "message": "Product updated successfully",
-        "data": updated_product
+        "data": product_schema.dump(product)
     }), 200
-
 
 @products_bp.delete("/<int:product_id>")
 @jwt_required()
 def delete_product(product_id):
-    user_id = str(get_jwt_identity())
+    user_id = int(get_jwt_identity())
 
-    product = products.get(product_id)
+    product = db.session.get(Product, product_id)
 
     if product is None:
         return jsonify({
@@ -307,7 +344,19 @@ def delete_product(product_id):
             }
         }), 404
 
-    if product.get("owner_id") != user_id:
+    farmer_profile = FarmerProfile.query.filter_by(
+        user_id=user_id
+    ).first()
+
+    if farmer_profile is None:
+        return jsonify({
+            "error": {
+                "code": "FARMER_PROFILE_NOT_FOUND",
+                "message": "Farmer profile not found"
+            }
+        }), 403
+
+    if product.farmer_id != farmer_profile.farmer_id:
         return jsonify({
             "error": {
                 "code": "FORBIDDEN",
@@ -315,6 +364,152 @@ def delete_product(product_id):
             }
         }), 403
 
-    del products[product_id]
+    db.session.delete(product)
+    db.session.commit()
+
+    return "", 204
+
+@products_bp.get("/<int:product_id>/images")
+def get_product_images(product_id):
+    product = db.session.get(Product, product_id)
+
+    if product is None:
+        return jsonify({
+            "error": {
+                "code": "PRODUCT_NOT_FOUND",
+                "message": "Product not found"
+            }
+        }), 404
+
+    images = product_image_schema.dump(product.images)
+
+    return jsonify({
+        "success": True,
+        "message": "Product images retrieved successfully",
+        "data": images
+    }), 200
+
+
+@products_bp.post("/<int:product_id>/images")
+@jwt_required()
+def add_product_image(product_id):
+    user_id = int(get_jwt_identity())
+
+    farmer_profile = FarmerProfile.query.filter_by(
+        user_id=user_id
+    ).first()
+
+    if farmer_profile is None:
+        return jsonify({
+            "error": {
+                "code": "FARMER_PROFILE_NOT_FOUND",
+                "message": "Farmer profile not found"
+            }
+        }), 403
+
+    product = db.session.get(Product, product_id)
+
+    if product is None:
+        return jsonify({
+            "error": {
+                "code": "PRODUCT_NOT_FOUND",
+                "message": "Product not found"
+            }
+        }), 404
+
+    if product.farmer_id != farmer_profile.farmer_id:
+        return jsonify({
+            "error": {
+                "code": "FORBIDDEN",
+                "message": "You can only add images to your own products"
+            }
+        }), 403
+
+    data = request.get_json(silent=True)
+
+    if not isinstance(data, dict):
+        return jsonify({
+            "error": {
+                "code": "INVALID_JSON",
+                "message": "Request body must be a JSON object"
+            }
+        }), 400
+
+    try:
+        validated_data = single_product_image_schema.load(data)
+    except ValidationError as error:
+        return jsonify({
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "Invalid image data",
+                "fields": error.messages
+            }
+        }), 400
+
+    new_image = ProductImage(
+        product_id=product_id,
+        image_url=validated_data["image_url"]
+    )
+
+    db.session.add(new_image)
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "message": "Product image added successfully",
+        "data": ProductImageSchema().dump(new_image)
+    }), 201
+
+
+@products_bp.delete("/<int:product_id>/images/<int:image_id>")
+@jwt_required()
+def delete_product_image(product_id, image_id):
+    user_id = int(get_jwt_identity())
+
+    farmer_profile = FarmerProfile.query.filter_by(
+        user_id=user_id
+    ).first()
+
+    if farmer_profile is None:
+        return jsonify({
+            "error": {
+                "code": "FARMER_PROFILE_NOT_FOUND",
+                "message": "Farmer profile not found"
+            }
+        }), 403
+
+    product = db.session.get(Product, product_id)
+
+    if product is None:
+        return jsonify({
+            "error": {
+                "code": "PRODUCT_NOT_FOUND",
+                "message": "Product not found"
+            }
+        }), 404
+
+    if product.farmer_id != farmer_profile.farmer_id:
+        return jsonify({
+            "error": {
+                "code": "FORBIDDEN",
+                "message": "You can only delete images from your own products"
+            }
+        }), 403
+
+    image = ProductImage.query.filter_by(
+        image_id=image_id,
+        product_id=product_id
+    ).first()
+
+    if image is None:
+        return jsonify({
+            "error": {
+                "code": "IMAGE_NOT_FOUND",
+                "message": "Product image not found"
+            }
+        }), 404
+
+    db.session.delete(image)
+    db.session.commit()
 
     return "", 204
