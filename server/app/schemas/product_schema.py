@@ -56,7 +56,8 @@ class ProductSchema(Schema):
         required=True,
         validate=validate.OneOf([
             "available",
-            "unavailable",
+            "sold_out",
+            "inactive"
         ]),
     )
 
@@ -115,3 +116,33 @@ class ProductImageSchema(Schema):
 
 
 product_schema = ProductCRUDSchema()
+
+class ProductSearchSchema(Schema):
+    product_id = fields.Int()
+    product_name = fields.Str()
+    description = fields.Str(allow_none=True)
+    price = fields.Decimal(as_string=True)
+    quantity_available = fields.Decimal(as_string=True)
+    unit = fields.Str()
+    quality = fields.Str(allow_none=True)
+    availability_date = fields.Date(allow_none=True)
+    status = fields.Str()
+
+    category_id = fields.Int()
+    category_name = fields.Method("get_category_name")
+
+    farmer_id = fields.Int()
+    farm_name = fields.Method("get_farm_name")
+    farmer_location = fields.Method("get_farmer_location")
+
+    def get_category_name(self, product):
+        return product.category.category_name if product.category else None
+
+    def get_farm_name(self, product):
+        return product.farmer.farm_name if product.farmer else None
+
+    def get_farmer_location(self, product):
+        return product.farmer.location if product.farmer else None
+
+
+product_search_schema = ProductSearchSchema(many=True)
