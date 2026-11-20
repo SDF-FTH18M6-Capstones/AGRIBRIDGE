@@ -1,9 +1,13 @@
+from decimal import Decimal, InvalidOperation
 
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from marshmallow import ValidationError
+from sqlalchemy import or_
 
-from app.schemas.product_schema import product_schema
+from app.extensions import db
+from app.models import Product, Category, FarmerProfile, PRODUCT_STATUSES
+from app.schemas.product_schema import product_schema, product_search_schema
 
 
 products_bp = Blueprint("products", __name__)
@@ -29,6 +33,137 @@ products = {
         "price": 80
     }
 }
+
+@products_bp.get("/search")
+def search_products():
+    query = Product.query
+
+    search = request.args.get("search", "").strip()
+    category_id = request.args.get("category_id")
+    min_price = request.args.get("min_price")
+    max_price = request.args.get("max_price")
+    location = request.args.get("location", "").strip()
+    availability = request.args.get("availability", "").strip().lower()
+
+  
+    if search:
+        search_term = f"%{search}%"
+
+        query = query.filter(
+            or_(
+                Product.product_name.ilike(search_term),
+                Product.description.ilike(search_term)
+            )
+        )
+
+   
+    if category_id is not None:
+        try:
+            category_id = int(category_id)
+
+            if category_id <= 0:
+                raise ValueError
+
+        except ValueError:
+            return jsonify({
+                "success": False,
+                "message": "category_id must be a positive integer"
+            }), 400
+
+        query = query.filter(Product.category_id == category_id)
+
+   
+    if min_price is not None:
+        try:
+            min_price = Decimal(min_price)
+
+            if not min_price.is_finite() or min_price < 0:
+                raise ValueError
+
+        except (InvalidOperation, ValueError):
+            return jsonify({
+                "success": False,
+                "message": "min_price must be a valid non-negative number"
+            }), 400
+
+        query = query.filter(Product.price >= min_price)
+
+   
+    if max_price is not None:
+        try:
+            max_price = Decimal(max_price)
+
+            if not max_price.is_finite() or max_price < 0:
+                raise ValueError
+
+        except (InvalidOperation, ValueError):
+            return jsonify({
+                "success": False,
+                "message": "max_price must be a valid non-negative number"
+            }), 400
+
+        query = query.filter(Product.price <= max_price)
+
+    
+    if min_price is not None and max_price is not None:
+        if min_price > max_price:
+            return jsonify({
+                "success": False,
+                "message": "min_price cannot be greater than max_price"
+            }), 400
+
+   
+    if location:
+        query = query.join(Product.farmer).filter(
+            FarmerProfile.location.ilike(f"%{location}%")
+        )
+
+    
+    if availability:
+        if availability not in PRODUCT_STATUSES:
+            return jsonify({
+                "success": False,
+                "message": "Invalid availability status",
+                "allowed_values": list(PRODUCT_STATUSES)
+            }), 400
+
+        query = query.filter(Product.status == availability)
+
+   
+    try:
+        page = int(request.args.get("page", 1))
+        per_page = int(request.args.get("per_page", 10))
+
+        if page < 1 or per_page < 1 or per_page > 100:
+            raise ValueError
+
+    except (ValueError, TypeError):
+        return jsonify({
+            "success": False,
+            "message": "page must be positive and per_page must be between 1 and 100"
+        }), 400
+
+    pagination = query.order_by(Product.product_id.asc()).paginate(
+        page=page,
+        per_page=per_page,
+        error_out=False
+    )
+
+    products_data = product_search_schema.dump(pagination.items)
+
+    return jsonify({
+        "success": True,
+        "message": "Products retrieved successfully",
+        "data": products_data,
+        "pagination": {
+            "page": pagination.page,
+            "per_page": pagination.per_page,
+            "total_items": pagination.total,
+            "total_pages": pagination.pages,
+            "has_next": pagination.has_next,
+            "has_previous": pagination.has_prev
+        }
+    }), 200
 
 
 @products_bp.get("")
