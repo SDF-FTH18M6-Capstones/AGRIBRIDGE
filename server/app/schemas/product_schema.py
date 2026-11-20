@@ -115,7 +115,8 @@ class ProductImageSchema(Schema):
     image_url = fields.Url(required=True)
 
 
-product_schema = ProductCRUDSchema()
+product_schema = ProductSchema()
+product_list_schema = ProductSchema(many=True)
 
 class ProductSearchSchema(Schema):
     product_id = fields.Int()
