@@ -1,42 +1,66 @@
-from datetime import timedelta
 
-from flask import Blueprint, jsonify, request
-from flask_jwt_extended import (
-    create_access_token,
-    decode_token,
-    get_jwt,
-    jwt_required,
-)
-from jwt import ExpiredSignatureError, InvalidTokenError
+import hashlib
+import secrets
+from datetime import datetime, timedelta, timezone
+
+from flask import Blueprint, current_app, jsonify, request
+from flask_jwt_extended import create_access_token, get_jwt, jwt_required
 from marshmallow import ValidationError
-from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 
 from app.extensions import db
-from app.models import Role, User
+from app.models import PasswordResetToken, RevokedToken, Role, User
 from app.schemas.user_schema import UserSchema
-from app.extensions import db, REVOKED_JTIS
 
 
 auth_bp = Blueprint("auth", __name__)
+
 user_schema = UserSchema()
-REVOKED_JTIS = set()
 
 
-def invalid_json_response():
+def error_response(code, message, status_code):
     return jsonify({
         "error": {
-            "code": "INVALID_JSON",
-            "message": "Request body must be a JSON object",
+            "code": code,
+            "message": message,
         }
-    }), 400
+    }), status_code
 
 
-@auth_bp.post("/register")
+def success_response(message, data=None, status_code=200):
+    response = {"message": message}
+
+    if data is not None:
+        response["data"] = data
+
+    return jsonify(response), status_code
+
+
+def _send_reset_email(user, raw_token):
+    reset_url = current_app.config.get(
+        "PASSWORD_RESET_URL",
+        "http://localhost:5173/reset-password",
+    )
+
+    reset_link = f"{reset_url}?token={raw_token}"
+
+    current_app.logger.info(
+        "Password reset link prepared for %s: %s",
+        user.email,
+        reset_link,
+    )
+
+
+@auth_bp.route("/register", methods=["POST"])
 def register():
     data = request.get_json(silent=True)
+
     if not isinstance(data, dict):
-        return invalid_json_response()
+        return error_response(
+            "VALIDATION_ERROR",
+            "A valid JSON object is required.",
+            400,
+        )
 
     try:
         values = user_schema.load(data)
@@ -44,36 +68,38 @@ def register():
         return jsonify({
             "error": {
                 "code": "VALIDATION_ERROR",
-                "message": "Invalid registration data",
-                "fields": error.messages,
+                "message": "Please provide valid registration details.",
+                "details": error.messages,
             }
         }), 400
 
     email = values["email"].strip().lower()
     phone_number = values.get("phone_number")
-    if phone_number == "":
-        phone_number = None
 
-    existing_user = User.query.filter(func.lower(User.email) == email).first()
-    if existing_user:
-        return jsonify({
-            "error": {
-                "code": "USER_EXISTS",
-                "message": "An account with this email already exists",
-            }
-        }), 409
+    if phone_number:
+        phone_number = phone_number.strip()
 
-    if phone_number and User.query.filter_by(phone_number=phone_number).first():
-        return jsonify({
-            "error": {
-                "code": "USER_EXISTS",
-                "message": "An account with this phone number already exists",
-            }
-        }), 409
+    if User.query.filter_by(email=email).first():
+        return error_response(
+            "USER_EXISTS",
+            "An account with this email already exists.",
+            409,
+        )
+
+    if phone_number and User.query.filter_by(
+        phone_number=phone_number
+    ).first():
+        return error_response(
+            "PHONE_EXISTS",
+            "An account with this phone number already exists.",
+            409,
+        )
+
+    role_name = values["role"].strip().lower()
+
+    role = Role.query.filter_by(role_name=role_name).first()
 
     try:
-        role_name = values["role"]
-        role = Role.query.filter_by(role_name=role_name).first()
         if role is None:
             role = Role(role_name=role_name)
             db.session.add(role)
@@ -85,201 +111,250 @@ def register():
             phone_number=phone_number,
             role_id=role.role_id,
         )
+
         user.set_password(values["password"])
+
         db.session.add(user)
         db.session.commit()
+
     except IntegrityError:
         db.session.rollback()
-        return jsonify({
-            "error": {
-                "code": "USER_EXISTS",
-                "message": "An account with these details already exists",
-            }
-        }), 409
+        return error_response(
+            "USER_EXISTS",
+            "An account with these details already exists.",
+            409,
+        )
 
-    return jsonify({
-        "message": "Registration successful",
-        "data": {
+    return success_response(
+        "Registration successful.",
+        {
             "user_id": user.user_id,
             "full_name": user.full_name,
             "email": user.email,
             "phone_number": user.phone_number,
             "role": role.role_name,
         },
-    }), 201
+        201,
+    )
 
 
-@auth_bp.post("/login")
+@auth_bp.route("/login", methods=["POST"])
 def login():
     data = request.get_json(silent=True)
+
     if not isinstance(data, dict):
-        return invalid_json_response()
+        return error_response(
+            "VALIDATION_ERROR",
+            "A valid JSON object is required.",
+            400,
+        )
 
     email = data.get("email")
     password = data.get("password")
-    if not isinstance(email, str) or not email.strip() or not isinstance(password, str) or not password:
-        return jsonify({
-            "error": {
-                "code": "VALIDATION_ERROR",
-                "message": "Email and password are required",
-                "fields": {
-                    "email": ["A valid email is required"] if not isinstance(email, str) or not email.strip() else [],
-                    "password": ["A password is required"] if not isinstance(password, str) or not password else [],
-                },
-            }
-        }), 400
 
-    user = User.query.filter_by(email=email.strip().lower()).first()
+    if not isinstance(email, str) or not isinstance(password, str):
+        return error_response(
+            "VALIDATION_ERROR",
+            "Email and password are required.",
+            400,
+        )
+
+    user = User.query.filter_by(
+        email=email.strip().lower()
+    ).first()
+
     if user is None or not user.check_password(password):
-        return jsonify({
-            "error": {
-                "code": "INVALID_CREDENTIALS",
-                "message": "Invalid email or password",
-            }
-        }), 401
+        return error_response(
+            "INVALID_CREDENTIALS",
+            "Invalid email or password.",
+            401,
+        )
 
-    access_token = create_access_token(identity=str(user.user_id))
-    return jsonify({
-        "message": "Login successful",
-        "data": {
+    access_token = create_access_token(
+        identity=str(user.user_id)
+    )
+
+    return success_response(
+        "Login successful.",
+        {
             "access_token": access_token,
             "token_type": "Bearer",
             "user": {
                 "user_id": user.user_id,
                 "full_name": user.full_name,
                 "email": user.email,
-                "role": user.role.role_name,
+                "phone_number": user.phone_number,
+                "role": user.role.role_name if user.role else None,
             },
         },
-    }), 200
+    )
 
 
-@auth_bp.post("/logout")
+@auth_bp.route("/logout", methods=["POST"])
 @jwt_required()
 def logout():
     jti = get_jwt()["jti"]
-    REVOKED_JTIS.add(jti)
-    return jsonify({
-        "message": "Logout successful",
-    }), 200
+
+    existing_token = RevokedToken.query.filter_by(
+        jti=jti
+    ).first()
+
+    if existing_token is None:
+        db.session.add(RevokedToken(jti=jti))
+        db.session.commit()
+
+    return success_response("Successfully logged out.")
 
 
-@auth_bp.post("/forgot-password")
+@auth_bp.route("/forgot-password", methods=["POST"])
 def forgot_password():
     data = request.get_json(silent=True)
+
     if not isinstance(data, dict):
-        return invalid_json_response()
+        return error_response(
+            "VALIDATION_ERROR",
+            "A valid JSON object is required.",
+            400,
+        )
 
     email = data.get("email")
+
     if not isinstance(email, str) or not email.strip():
-        return jsonify({
-            "error": {
-                "code": "VALIDATION_ERROR",
-                "message": "A valid email is required",
-                "fields": {
-                    "email": ["A valid email is required"],
-                },
-            }
-        }), 400
+        return error_response(
+            "VALIDATION_ERROR",
+            "Email is required.",
+            400,
+        )
 
-    normalized_email = email.strip().lower()
-    user = User.query.filter(func.lower(User.email) == normalized_email).first()
-    if user is None:
-        return jsonify({
-            "error": {
-                "code": "USER_NOT_FOUND",
-                "message": "No account found with this email",
-            }
-        }), 404
+    user = User.query.filter_by(
+        email=email.strip().lower()
+    ).first()
 
-    reset_token = create_access_token(
-        identity=str(user.user_id),
-        expires_delta=timedelta(minutes=15),
-        additional_claims={"purpose": "password_reset"},
+    if user:
+        raw_token = secrets.token_urlsafe(32)
+
+        token_hash = hashlib.sha256(
+            raw_token.encode("utf-8")
+        ).hexdigest()
+
+        expiration_minutes = current_app.config.get(
+            "PASSWORD_RESET_TOKEN_MINUTES",
+            15,
+        )
+
+        reset_token = PasswordResetToken(
+            user_id=user.user_id,
+            token_hash=token_hash,
+            expires_at=(
+                datetime.now(timezone.utc)
+                + timedelta(minutes=expiration_minutes)
+            ),
+        )
+
+        db.session.add(reset_token)
+        db.session.commit()
+
+        try:
+            _send_reset_email(user, raw_token)
+        except Exception:
+            current_app.logger.exception(
+                "Unable to prepare password reset email."
+            )
+
+    return success_response(
+        "If an account exists with that email, a password reset link has been sent."
     )
-    return jsonify({
-        "message": "Password reset token generated",
-        "data": {
-            "reset_token": reset_token,
-            "expires_in_minutes": 15,
-        },
-    }), 200
 
 
-@auth_bp.post("/reset-password")
+@auth_bp.route("/reset-password", methods=["POST"])
 def reset_password():
     data = request.get_json(silent=True)
+
     if not isinstance(data, dict):
-        return invalid_json_response()
+        return error_response(
+            "VALIDATION_ERROR",
+            "A valid JSON object is required.",
+            400,
+        )
 
-    token = data.get("token")
-    new_password = data.get("new_password")
-    errors = {}
-    if not isinstance(token, str) or not token.strip():
-        errors["token"] = ["Reset token is required"]
-    if not isinstance(new_password, str) or len(new_password) < 8:
-        errors["new_password"] = ["New password must be at least 8 characters"]
-    if errors:
-        return jsonify({
-            "error": {
-                "code": "VALIDATION_ERROR",
-                "message": "Invalid reset password request",
-                "fields": errors,
-            }
-        }), 400
+    raw_token = data.get("token")
+    new_password = data.get(
+        "new_password",
+        data.get("password"),
+    )
+    confirm_password = data.get("confirm_new_password")
 
-    try:
-        claims = decode_token(token.strip())
-    except ExpiredSignatureError:
-        return jsonify({
-            "error": {
-                "code": "TOKEN_EXPIRED",
-                "message": "Reset token has expired",
-            }
-        }), 400
-    except InvalidTokenError:
-        return jsonify({
-            "error": {
-                "code": "INVALID_TOKEN",
-                "message": "Invalid reset token",
-            }
-        }), 400
+    if (
+        not isinstance(raw_token, str)
+        or not raw_token.strip()
+        or not isinstance(new_password, str)
+    ):
+        return error_response(
+            "VALIDATION_ERROR",
+            "A reset token and new password are required.",
+            400,
+        )
 
-    if claims.get("purpose") != "password_reset":
-        return jsonify({
-            "error": {
-                "code": "INVALID_TOKEN",
-                "message": "Token is not valid for password reset",
-            }
-        }), 400
+    if (
+        len(new_password) < 8
+        or len(new_password.encode("utf-8")) > 72
+    ):
+        return error_response(
+            "VALIDATION_ERROR",
+            "Password must contain at least 8 characters and must not exceed 72 UTF-8 bytes.",
+            400,
+        )
 
-    jti = claims.get("jti")
-    if jti in REVOKED_JTIS:
-        return jsonify({
-            "error": {
-                "code": "TOKEN_REVOKED",
-                "message": "Reset token has already been used",
-            }
-        }), 400
+    if (
+        confirm_password is not None
+        and confirm_password != new_password
+    ):
+        return error_response(
+            "VALIDATION_ERROR",
+            "Passwords do not match.",
+            400,
+        )
 
-    user = User.query.filter_by(user_id=int(claims["sub"])).first()
+    token_hash = hashlib.sha256(
+        raw_token.encode("utf-8")
+    ).hexdigest()
+
+    reset_record = PasswordResetToken.query.filter_by(
+        token_hash=token_hash,
+        used_at=None,
+    ).first()
+
+    if reset_record is None:
+        return error_response(
+            "INVALID_RESET_TOKEN",
+            "The password reset token is invalid or has already been used.",
+            400,
+        )
+
+    expires_at = reset_record.expires_at
+
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+    if expires_at <= datetime.now(timezone.utc):
+        return error_response(
+            "INVALID_RESET_TOKEN",
+            "The password reset token has expired.",
+            400,
+        )
+
+    user = db.session.get(User, reset_record.user_id)
+
     if user is None:
-        return jsonify({
-            "error": {
-                "code": "USER_NOT_FOUND",
-                "message": "User associated with token was not found",
-            }
-        }), 404
+        return error_response(
+            "INVALID_RESET_TOKEN",
+            "The password reset token is invalid.",
+            400,
+        )
 
-    try:
-        user.set_password(new_password)
-        if jti:
-            REVOKED_JTIS.add(jti)
-        db.session.commit()
-    except Exception:
-        db.session.rollback()
-        raise
+    user.set_password(new_password)
+    reset_record.used_at = datetime.now(timezone.utc)
 
-    return jsonify({
-        "message": "Password reset successful",
-    }), 200
+    db.session.commit()
+
+    return success_response("Password reset successful.")
