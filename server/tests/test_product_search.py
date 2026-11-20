@@ -43,7 +43,7 @@ def client(app):
 
 @pytest.fixture
 def sample_products(app):
-    """Create sample farmers, categories, and products in PostgreSQL."""
+    
 
     with app.app_context():
         marker = uuid4().hex[:8]
