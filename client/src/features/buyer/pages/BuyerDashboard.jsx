@@ -20,15 +20,17 @@ const BuyerDashboard = ({ setActiveTab }) => {
     }
   };
 
+  const actionCardStyle =
+    "group rounded-xl border border-gray-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-1 hover:border-green-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-700";
+
   return (
     <div className="space-y-6">
-      {/* Top 4 Stat Cards */}
       <div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {stats.map((stat, idx) => (
             <div
               key={idx}
-              className="rounded-lg border border-gray-300 bg-white p-4"
+              className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
             >
               <p className="mb-1 text-xs font-medium text-gray-500">
                 {stat.label}
@@ -45,10 +47,8 @@ const BuyerDashboard = ({ setActiveTab }) => {
         </p>
       </div>
 
-      {/* Middle Row: My orders & Buying requests */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* My orders */}
-        <div className="flex min-h-[210px] flex-col justify-between rounded-lg border border-gray-300 bg-white p-5">
+        <div className="flex min-h-[210px] flex-col justify-between rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <div>
             <h3 className="mb-4 text-base font-bold text-gray-900">
               My orders
@@ -67,8 +67,7 @@ const BuyerDashboard = ({ setActiveTab }) => {
           </div>
         </div>
 
-        {/* Buying requests */}
-        <div className="flex min-h-[210px] flex-col justify-between rounded-lg border border-gray-300 bg-white p-5">
+        <div className="flex min-h-[210px] flex-col justify-between rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <div>
             <h3 className="mb-4 text-base font-bold text-gray-900">
               Buying requests
@@ -87,7 +86,7 @@ const BuyerDashboard = ({ setActiveTab }) => {
               onClick={() =>
                 handleNavigation("Buying requests", "/buyer/requests")
               }
-              className="w-full rounded-md bg-[#143d24] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#1c5231]"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#174832] px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#103923] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-700 focus-visible:ring-offset-2"
             >
               Post a buying request
             </button>
@@ -100,14 +99,13 @@ const BuyerDashboard = ({ setActiveTab }) => {
         </div>
       </div>
 
-      {/* Bottom Row: Cart & Payments */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <button
           type="button"
           onClick={() => handleNavigation("Cart", "/buyer/cart")}
-          className="rounded-lg border border-gray-300 bg-white p-5 text-left transition-colors hover:border-gray-400"
+          className={actionCardStyle}
         >
-          <h3 className="mb-1 text-base font-bold text-gray-900">
+          <h3 className="mb-1 text-base font-bold text-[#174832] group-hover:underline">
             Cart
           </h3>
           <p className="text-xs text-gray-500">
@@ -119,9 +117,9 @@ const BuyerDashboard = ({ setActiveTab }) => {
         <button
           type="button"
           onClick={() => handleNavigation("Payments", "/buyer/payments")}
-          className="rounded-lg border border-gray-300 bg-white p-5 text-left transition-colors hover:border-gray-400"
+          className={actionCardStyle}
         >
-          <h3 className="mb-1 text-base font-bold text-gray-900">
+          <h3 className="mb-1 text-base font-bold text-[#174832] group-hover:underline">
             Payments
           </h3>
           <p className="text-xs text-gray-500">

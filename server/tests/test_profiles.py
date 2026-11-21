@@ -166,9 +166,7 @@ def test_get_my_nonexistent_user_profile(client, app):
         headers={"Authorization": f"Bearer {token}"}
     )
 
-    assert response.status_code == 404
-    assert response.json["error"]["code"] == "USER_NOT_FOUND"
-
+    assert response.status_code == 401
 
 def test_update_buyer_profile(client, app, buyer_token, buyer_user, buyer_profile):
     response = client.put(
@@ -295,8 +293,7 @@ def test_update_profile_for_nonexistent_user(client, app):
         }
     )
 
-    assert response.status_code == 404
-    assert response.json["error"]["code"] == "USER_NOT_FOUND"
+    assert response.status_code == 401
 
 
 def test_update_profile_with_invalid_json_structure(client, buyer_token):

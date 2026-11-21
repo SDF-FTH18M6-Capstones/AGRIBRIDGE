@@ -95,21 +95,26 @@ def register():
             409,
         )
 
-    role_name = values["role"].strip().lower()
-
-    role = Role.query.filter_by(role_name=role_name).first()
+    role_name = values.get("role")
+    role = None
 
     try:
-        if role is None:
-            role = Role(role_name=role_name)
-            db.session.add(role)
-            db.session.flush()
+        if role_name:
+            role_name = role_name.strip().lower()
+            role = Role.query.filter_by(
+                role_name=role_name
+            ).first()
+
+            if role is None:
+                role = Role(role_name=role_name)
+                db.session.add(role)
+                db.session.flush()
 
         user = User(
             full_name=values["full_name"].strip(),
             email=email,
             phone_number=phone_number,
-            role_id=role.role_id,
+            role_id=role.role_id if role else None,
         )
 
         user.set_password(values["password"])
@@ -120,7 +125,7 @@ def register():
     except IntegrityError:
         db.session.rollback()
         return error_response(
-            "USER_EXISTS",
+            "REGISTRATION_CONFLICT",
             "An account with these details already exists.",
             409,
         )
@@ -132,11 +137,10 @@ def register():
             "full_name": user.full_name,
             "email": user.email,
             "phone_number": user.phone_number,
-            "role": role.role_name,
+            "role": role.role_name if role else None,
         },
         201,
     )
-
 
 @auth_bp.route("/login", methods=["POST"])
 def login():

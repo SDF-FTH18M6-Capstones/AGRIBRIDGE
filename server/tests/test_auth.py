@@ -159,3 +159,33 @@ def test_reset_password_validates_new_password(client):
     response = client.post("/api/reset-password", json={"token": "some-token", "password": "short"})
     assert response.status_code == 400
     assert response.json["error"]["code"] == "VALIDATION_ERROR"
+
+def test_register_without_role(client):
+    data = registration_data()
+    data.pop("role")
+
+    response = client.post("/api/register", json=data)
+
+    assert response.status_code == 201
+    assert response.json["data"]["role"] is None
+
+    user = User.query.one()
+    assert user.role_id is None
+    assert user.check_password("securepass123")
+
+def test_login_without_role_returns_null_role(client):
+    data = registration_data()
+    data.pop("role")
+
+    client.post("/api/register", json=data)
+
+    response = client.post(
+        "/api/login",
+        json={
+            "email": "amina@example.com",
+            "password": "securepass123",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json["data"]["user"]["role"] is None

@@ -1,11 +1,13 @@
-
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import api from "../../services/api";
 
 const inputClass =
   "w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-green-700 focus:ring-2 focus:ring-green-100";
 
 export default function SignUpPage() {
+  const navigate = useNavigate();
+
   const [form, setForm] = useState({
     fullName: "",
     email: "",
@@ -17,6 +19,7 @@ export default function SignUpPage() {
 
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   function handleChange(event) {
     const { name, value, type, checked } = event.target;
@@ -29,7 +32,7 @@ export default function SignUpPage() {
     setError("");
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
 
     if (!form.fullName.trim()) {
@@ -62,11 +65,32 @@ export default function SignUpPage() {
       return;
     }
 
-    // TODO: Connect to backend registration endpoint.
-    // Do not store passwords in browser storage.
-    setError(
-      "Registration is not connected to the backend yet."
-    );
+    setIsSubmitting(true);
+    setError("");
+
+    try {
+      await api.post("/register", {
+        full_name: form.fullName.trim(),
+        email: form.email.trim(),
+        phone_number: form.phone.trim(),
+        password: form.password,
+      });
+
+      navigate("/login", {
+        replace: true,
+        state: {
+          message: "Account created successfully. Please log in.",
+          email: form.email.trim(),
+        },
+      });
+    } catch (requestError) {
+      setError(
+        requestError.message ||
+        "Unable to create your account. Please try again."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -89,8 +113,7 @@ export default function SignUpPage() {
           </p>
 
           <p className="mt-2 text-sm text-gray-600">
-            You will choose how to use AgriBridge
-            after you log in.
+            You will choose how to use AgriBridge after you log in.
           </p>
         </div>
 
@@ -241,9 +264,10 @@ export default function SignUpPage() {
 
             <button
               type="submit"
-              className="w-full rounded-lg bg-green-800 px-5 py-3 font-semibold text-white transition hover:bg-green-900"
+              disabled={isSubmitting}
+              className="w-full rounded-lg bg-green-800 px-5 py-3 font-semibold text-white transition hover:bg-green-900 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Create account
+              {isSubmitting ? "Creating account..." : "Create account"}
             </button>
           </form>
 

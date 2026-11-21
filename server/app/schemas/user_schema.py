@@ -1,4 +1,3 @@
-
 from marshmallow import Schema, fields, validate
 
 
@@ -28,7 +27,8 @@ class UserSchema(Schema):
     )
 
     role = fields.Str(
-        required=True,
+        allow_none=True,
+        load_default=None,
         validate=validate.OneOf(
             ["farmer", "buyer"],
             error="Role must be either farmer or buyer.",

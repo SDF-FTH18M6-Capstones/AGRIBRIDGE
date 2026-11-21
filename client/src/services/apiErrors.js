@@ -1,26 +1,24 @@
-
 export const handleApiError = (error) => {
   if (error.response) {
     const status = error.response.status;
+    const responseData = error.response.data;
 
-    let message =
-      error.response.data?.message ||
-      error.response.data?.error;
-
-    if (status === 401) {
-      message = message || "Unauthorized. Please log in again.";
-    } else if (status === 403) {
-      message =
-        message || "You do not have permission to perform this action.";
-    } else {
-      message =
-        message || "Something went wrong. Please try again.";
-    }
+    const message =
+      responseData?.error?.message ||
+      responseData?.message ||
+      (typeof responseData?.error === "string"
+        ? responseData.error
+        : null) ||
+      (status === 401
+        ? "Unauthorized. Please log in again."
+        : status === 403
+          ? "You do not have permission to perform this action."
+          : "Something went wrong. Please try again.");
 
     return {
       message,
       status,
-      data: error.response.data,
+      data: responseData,
     };
   }
 
