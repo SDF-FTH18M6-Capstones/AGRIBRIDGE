@@ -9,6 +9,7 @@ function readInitialProfile() {
     const savedProfile = JSON.parse(
       localStorage.getItem(PROFILE_KEY) || "null"
     );
+
     const savedVerification = JSON.parse(
       localStorage.getItem(VERIFICATION_KEY) || "null"
     );
@@ -46,16 +47,71 @@ function readInitialProfile() {
   }
 }
 
+// Compress images before storing them.
+function compressImage(file) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    const imageUrl = URL.createObjectURL(file);
+
+    image.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        const maxSize = 500;
+
+        const scale = Math.min(
+          1,
+          maxSize / Math.max(image.width, image.height)
+        );
+
+        canvas.width = Math.round(image.width * scale);
+        canvas.height = Math.round(image.height * scale);
+
+        const context = canvas.getContext("2d");
+
+        if (!context) {
+          throw new Error("Could not process image.");
+        }
+
+        context.drawImage(
+          image,
+          0,
+          0,
+          canvas.width,
+          canvas.height
+        );
+
+        const compressedPhoto = canvas.toDataURL(
+          "image/jpeg",
+          0.55
+        );
+
+        URL.revokeObjectURL(imageUrl);
+        resolve(compressedPhoto);
+      } catch (error) {
+        URL.revokeObjectURL(imageUrl);
+        reject(error);
+      }
+    };
+
+    image.onerror = () => {
+      URL.revokeObjectURL(imageUrl);
+      reject(new Error("Could not load image."));
+    };
+
+    image.src = imageUrl;
+  });
+}
+
 function MyFarm() {
   const [profile, setProfile] = useState(readInitialProfile);
   const [message, setMessage] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const inputClass =
     "w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-[#168343] focus:ring-2 focus:ring-green-100";
 
-  const labelClass = "mb-2 block text-sm font-medium text-gray-700";
+  const labelClass =
+    "mb-2 block text-sm font-medium text-gray-700";
 
   useEffect(() => {
     let isMounted = true;
@@ -129,103 +185,122 @@ function MyFarm() {
     setMessage("");
   };
 
-  const handlePhotoChange = (event) => {
+  const handlePhotoChange = async (event) => {
     const file = event.target.files?.[0];
 
     if (!file) return;
 
-    const reader = new FileReader();
+    if (!file.type.startsWith("image/")) {
+      setMessage("Please select a valid image.");
+      return;
+    }
 
-    reader.onloadend = () => {
+    if (file.size > 10 * 1024 * 1024) {
+      setMessage("Please select an image smaller than 10 MB.");
+      return;
+    }
+
+    try {
+      const compressedPhoto = await compressImage(file);
+
       setProfile((previous) => ({
         ...previous,
-        photo: reader.result,
+        photo: compressedPhoto,
       }));
-    };
 
-    reader.readAsDataURL(file);
+      setMessage("Photo ready. Save your profile to keep your changes.");
+    } catch (error) {
+      console.error("Photo compression failed:", error);
+      setMessage("Could not process the photo. Please try another image.");
+    }
   };
 
   const handleSave = async (event) => {
     event.preventDefault();
 
-    const farmName = profile.farmName.trim();
-    const location = profile.location.trim();
-
-    if (farmName.length < 2 || location.length < 2) {
-      setMessage("Please enter a valid farm name and location.");
-      return;
-    }
-
-    setIsSaving(true);
+    setSaving(true);
     setMessage("");
 
+    const profileToSave = {
+      photo: profile.photo,
+      fullName: profile.fullName.trim(),
+      phone: profile.phone.trim(),
+      countyAndSubCounty: profile.countyAndSubCounty.trim(),
+      farmName: profile.farmName.trim(),
+      location: profile.location.trim(),
+      crops: profile.crops.trim(),
+      farmSize: profile.farmSize.trim(),
+      updatedAt: new Date().toISOString(),
+    };
+
     try {
-      const response = await api.put("/profiles/me", {
-        profile_type: "farmer",
-        farm_name: farmName,
-        location: location,
-      });
+      // Save the profile, retrying without the photo if storage is full.
+      try {
+        localStorage.setItem(
+          PROFILE_KEY,
+          JSON.stringify(profileToSave)
+        );
+      } catch (storageError) {
+        if (storageError.name !== "QuotaExceededError") {
+          throw storageError;
+        }
 
-      const savedFarmerProfile = response.data.data;
-
-      const profileToSave = {
-        photo: profile.photo,
-        fullName: profile.fullName.trim(),
-        phone: profile.phone.trim(),
-        countyAndSubCounty: profile.countyAndSubCounty.trim(),
-        farmName: savedFarmerProfile.farm_name,
-        location: savedFarmerProfile.location,
-        crops: profile.crops.trim(),
-        farmSize: profile.farmSize.trim(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      localStorage.setItem(
-        PROFILE_KEY,
-        JSON.stringify(profileToSave)
-      );
-
-      const existingVerification = JSON.parse(
-        localStorage.getItem(VERIFICATION_KEY) || "null"
-      );
-
-      if (existingVerification?.form) {
-        const [countyPart, ...subCountyParts] =
-          profileToSave.countyAndSubCounty
-            .split(",")
-            .map((part) => part.trim());
-
-        const updatedVerification = {
-          ...existingVerification,
-          form: {
-            ...existingVerification.form,
-            fullName:
-              profileToSave.fullName ||
-              existingVerification.form.fullName,
-            phone:
-              profileToSave.phone ||
-              existingVerification.form.phone,
-            county:
-              countyPart ||
-              existingVerification.form.county,
-            subCounty:
-              subCountyParts.join(", ") ||
-              existingVerification.form.subCounty,
-            farmName: profileToSave.farmName,
-            farmLocation: profileToSave.location,
-            crops:
-              profileToSave.crops ||
-              existingVerification.form.crops,
-            farmSize:
-              profileToSave.farmSize ||
-              existingVerification.form.farmSize,
-          },
+        const profileWithoutPhoto = {
+          ...profileToSave,
+          photo: "",
         };
 
         localStorage.setItem(
-          VERIFICATION_KEY,
-          JSON.stringify(updatedVerification)
+          PROFILE_KEY,
+          JSON.stringify(profileWithoutPhoto)
+        );
+
+        setProfile((previous) => ({
+          ...previous,
+          photo: "",
+        }));
+
+        setMessage(
+          "Farm details saved, but the photo could not be saved because browser storage is full."
+        );
+      }
+
+      // Update existing verification details without changing approval status.
+      try {
+        const existingVerification = JSON.parse(
+          localStorage.getItem(VERIFICATION_KEY) || "null"
+        );
+
+        if (existingVerification?.form) {
+          const [countyPart, ...subCountyParts] =
+            profileToSave.countyAndSubCounty
+              .split(",")
+              .map((part) => part.trim());
+
+          const updatedVerification = {
+            ...existingVerification,
+            form: {
+              ...existingVerification.form,
+              fullName: profileToSave.fullName,
+              phone: profileToSave.phone,
+              county: countyPart || "",
+              subCounty: subCountyParts.join(", "),
+              farmName: profileToSave.farmName,
+              farmLocation: profileToSave.location,
+              crops: profileToSave.crops,
+              farmSize: profileToSave.farmSize,
+            },
+          };
+
+          localStorage.setItem(
+            VERIFICATION_KEY,
+            JSON.stringify(updatedVerification)
+          );
+        }
+      } catch (verificationError) {
+        console.error(
+          "Could not update verification details:",
+          verificationError
         );
       }
 
@@ -237,19 +312,18 @@ function MyFarm() {
 
       window.dispatchEvent(new Event("agribridge-update"));
 
-      setMessage(
-        response.data.message ||
-          "Your farm profile has been saved successfully."
+      setMessage((previous) =>
+        previous.includes("photo could not be saved")
+          ? previous
+          : "Your farm profile has been saved successfully."
       );
     } catch (error) {
-      console.error("Could not save farmer profile:", error);
-
+      console.error("Could not save profile:", error);
       setMessage(
-        error.message ||
-          "Error saving your farm profile. Please try again."
+        "Could not save farm details. Browser storage may be full."
       );
     } finally {
-      setIsSaving(false);
+      setSaving(false);
     }
   };
 
@@ -260,6 +334,7 @@ function MyFarm() {
           <h1 className="text-2xl font-bold text-gray-900">
             My farm
           </h1>
+
           <p className="mt-1 text-sm text-gray-500">
             Manage your personal and farm information.
           </p>
@@ -273,7 +348,10 @@ function MyFarm() {
       </div>
 
       {message && (
-        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
+        <div
+          role="status"
+          className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700"
+        >
           {message}
         </div>
       )}
@@ -319,6 +397,7 @@ function MyFarm() {
                 <label htmlFor="fullName" className={labelClass}>
                   Full name
                 </label>
+
                 <input
                   id="fullName"
                   name="fullName"
@@ -334,6 +413,7 @@ function MyFarm() {
                 <label htmlFor="phone" className={labelClass}>
                   Phone number
                 </label>
+
                 <input
                   id="phone"
                   name="phone"
@@ -352,6 +432,7 @@ function MyFarm() {
                 >
                   County and sub-county
                 </label>
+
                 <input
                   id="countyAndSubCounty"
                   name="countyAndSubCounty"
@@ -376,6 +457,7 @@ function MyFarm() {
                 <label htmlFor="farmName" className={labelClass}>
                   Farm name
                 </label>
+
                 <input
                   id="farmName"
                   name="farmName"
@@ -391,6 +473,7 @@ function MyFarm() {
                 <label htmlFor="location" className={labelClass}>
                   Location
                 </label>
+
                 <input
                   id="location"
                   name="location"
@@ -406,6 +489,7 @@ function MyFarm() {
                 <label htmlFor="crops" className={labelClass}>
                   Main crops or livestock
                 </label>
+
                 <input
                   id="crops"
                   name="crops"
@@ -421,6 +505,7 @@ function MyFarm() {
                 <label htmlFor="farmSize" className={labelClass}>
                   Farm size
                 </label>
+
                 <input
                   id="farmSize"
                   name="farmSize"
@@ -442,10 +527,10 @@ function MyFarm() {
 
         <button
           type="submit"
-          disabled={isSaving || isLoading}
+          disabled={saving}
           className="mt-5 rounded-lg bg-[#174832] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#103724] disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isSaving ? "Saving..." : "Save changes"}
+          {saving ? "Saving..." : "Save changes"}
         </button>
       </form>
     </div>

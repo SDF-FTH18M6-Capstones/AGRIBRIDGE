@@ -61,6 +61,11 @@ class ProductSchema(Schema):
         ]),
     )
 
+    image_url = fields.Method("get_image_url")
+
+    def get_image_url(self, product):
+        return product.images[0].image_url if product.images else None
+
 
 class ProductCRUDSchema(Schema):
     name = fields.Str(
@@ -135,6 +140,10 @@ class ProductSearchSchema(Schema):
     farmer_id = fields.Int()
     farm_name = fields.Method("get_farm_name")
     farmer_location = fields.Method("get_farmer_location")
+    image_url = fields.Method("get_image_url")
+
+    def get_image_url(self, product):
+        return product.images[0].image_url if product.images else None
 
     def get_category_name(self, product):
         return product.category.category_name if product.category else None

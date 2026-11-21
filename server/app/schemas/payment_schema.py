@@ -29,7 +29,7 @@ class PaymentSchema(Schema):
         dump_only=True,
         validate=validate.OneOf([
             "pending",
-            "completed",
+            "paid",
             "failed",
             "refunded"
         ])
