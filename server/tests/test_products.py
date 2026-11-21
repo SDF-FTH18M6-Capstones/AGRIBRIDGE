@@ -1,19 +1,32 @@
 import os
 import pytest
 
+
 from datetime import timedelta
 from decimal import Decimal
 from uuid import uuid4
+from io import BytesIO
+from PIL import Image
 from dotenv import load_dotenv
 from sqlalchemy.engine import make_url
 from flask_jwt_extended import create_access_token
 
 from app import create_app
 from app.extensions import db
-from app.models import Role, User, FarmerProfile, Category, Product
+from app.models import Role, User, FarmerProfile, Category, Product, ProductImage
 
 
 load_dotenv(".env")
+def create_test_jpeg():
+    image_buffer = BytesIO()
+
+    Image.new("RGB", (2, 2), color="red").save(
+        image_buffer,
+        format="JPEG"
+    )
+
+    image_buffer.seek(0)
+    return image_buffer
 
 
 @pytest.fixture
@@ -131,7 +144,7 @@ def sample_products(app):
 
         yield test_data
 
-        
+
         Product.query.filter(
             Product.product_name.like(f"%{marker}%")
         ).delete(synchronize_session=False)
@@ -512,3 +525,234 @@ def test_create_product_with_expired_token(client, sample_products):
     )
 
     assert response.status_code == 401
+
+
+def test_get_my_products_returns_only_authenticated_farmers_products(
+    client, auth_headers, sample_products
+):
+    response = client.get(
+        "/api/products/mine",
+        headers=auth_headers
+    )
+
+    assert response.status_code == 200
+
+    returned_ids = [
+        product["product_id"]
+        for product in response.json["data"]
+    ]
+
+    assert sample_products["product1_id"] in returned_ids
+    assert sample_products["product2_id"] not in returned_ids
+
+
+def test_get_my_products_without_token(client):
+    response = client.get("/api/products/mine")
+
+    assert response.status_code == 401
+
+
+
+def test_get_my_products_without_farmer_profile(
+    client, app, sample_products
+):
+    with app.app_context():
+        role = Role.query.filter_by(
+            role_name=f"farmer_test_{sample_products['marker']}"
+        ).first()
+
+        user_without_profile = User(
+            full_name="Farmer Without Profile",
+            email=f"no_profile_{sample_products['marker']}@example.com",
+            password_hash="test-password-hash",
+            role_id=role.role_id
+        )
+
+        db.session.add(user_without_profile)
+        db.session.commit()
+
+        user_id = user_without_profile.user_id
+
+        token = create_access_token(
+            identity=str(user_id)
+        )
+
+    try:
+        response = client.get(
+            "/api/products/mine",
+            headers={"Authorization": f"Bearer {token}"}
+        )
+
+        assert response.status_code == 403
+        assert response.json["error"]["code"] == "FARMER_PROFILE_NOT_FOUND"
+
+    finally:
+        with app.app_context():
+            user = db.session.get(User, user_id)
+
+            if user is not None:
+                db.session.delete(user)
+                db.session.commit()
+
+def test_upload_and_delete_product_image(
+    client, app, auth_headers, sample_products
+):
+    product_id = sample_products["product1_id"]
+
+
+    response = client.post(
+        f"/api/products/{product_id}/images",
+        headers=auth_headers,
+        data={
+            "image": (
+                create_test_jpeg(),
+                "tomato.jpg",
+                "image/jpeg"
+            )
+        }
+    )
+
+    assert response.status_code == 201
+    assert response.json["success"] is True
+
+    image_data = response.json["data"]
+    image_id = image_data["image_id"]
+    image_url = image_data["image_url"]
+
+    filename = os.path.basename(image_url)
+
+    image_path = os.path.join(
+        app.instance_path,
+        "uploads",
+        "products",
+        filename
+    )
+
+
+    assert os.path.isfile(image_path)
+
+
+    with app.app_context():
+        saved_image = db.session.get(ProductImage, image_id)
+
+        assert saved_image is not None
+        assert saved_image.product_id == product_id
+
+
+    delete_response = client.delete(
+        f"/api/products/{product_id}/images/{image_id}",
+        headers=auth_headers
+    )
+
+    assert delete_response.status_code == 204
+
+
+    assert not os.path.isfile(image_path)
+
+
+    with app.app_context():
+        deleted_image = db.session.get(ProductImage, image_id)
+
+        assert deleted_image is None
+
+def test_upload_product_image_rejects_unsupported_extension(
+    client, auth_headers, sample_products
+):
+    product_id = sample_products["product1_id"]
+
+    response = client.post(
+        f"/api/products/{product_id}/images",
+        headers=auth_headers,
+        data={
+            "image": (
+                BytesIO(b"not an image"),
+                "document.txt",
+                "text/plain"
+            )
+        }
+    )
+
+    assert response.status_code == 400
+    assert response.json["error"]["code"] == "INVALID_IMAGE_TYPE"
+
+def test_upload_product_image_rejects_invalid_image_content(
+    client, auth_headers, sample_products
+):
+    product_id = sample_products["product1_id"]
+
+    response = client.post(
+        f"/api/products/{product_id}/images",
+        headers=auth_headers,
+        data={
+            "image": (
+                BytesIO(b"not really an image"),
+                "tomato.jpg",
+                "image/jpeg"
+            )
+        }
+    )
+
+    assert response.status_code == 400
+    assert response.json["error"]["code"] == "INVALID_IMAGE_CONTENT"
+
+def test_upload_product_image_rejects_mime_type_mismatch(
+    client, auth_headers, sample_products
+):
+    product_id = sample_products["product1_id"]
+
+    response = client.post(
+        f"/api/products/{product_id}/images",
+        headers=auth_headers,
+        data={
+            "image": (
+                BytesIO(b"fake image bytes"),
+                "tomato.jpg",
+                "image/png"
+            )
+        }
+    )
+
+    assert response.status_code == 400
+    assert response.json["error"]["code"] == "INVALID_IMAGE_TYPE"
+
+def test_upload_product_image_rejects_files_larger_than_5mb(
+    client, auth_headers, sample_products
+):
+    product_id = sample_products["product1_id"]
+
+    oversized_image = BytesIO(b"x" * (5 * 1024 * 1024 + 1))
+
+    response = client.post(
+        f"/api/products/{product_id}/images",
+        headers=auth_headers,
+        data={
+            "image": (
+                oversized_image,
+                "large-image.jpg",
+                "image/jpeg"
+            )
+        }
+    )
+
+    assert response.status_code == 400
+    assert response.json["error"]["code"] == "IMAGE_TOO_LARGE"
+
+def test_upload_product_image_forbidden_for_another_farmers_product(
+    client, auth_headers, sample_products
+):
+    product_id = sample_products["product2_id"]
+
+    response = client.post(
+        f"/api/products/{product_id}/images",
+        headers=auth_headers,
+        data={
+            "image": (
+                BytesIO(b"fake image bytes"),
+                "tomato.jpg",
+                "image/jpeg"
+            )
+        }
+    )
+
+    assert response.status_code == 403
+    assert response.json["error"]["code"] == "FORBIDDEN"
