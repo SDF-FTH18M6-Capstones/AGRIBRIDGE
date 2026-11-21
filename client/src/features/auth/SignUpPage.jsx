@@ -129,10 +129,7 @@ export default function SignUpPage() {
     <main className="flex min-h-[75vh] items-center justify-center bg-[#f7faf6] px-4 py-12">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <Link
-            to="/"
-            className="text-3xl font-extrabold text-green-800"
-          >
+          <Link to="/" className="text-3xl font-extrabold text-green-800">
             AgriBridge
           </Link>
 
