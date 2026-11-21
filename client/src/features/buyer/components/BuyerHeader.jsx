@@ -1,3 +1,4 @@
+
 import React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -7,8 +8,8 @@ import {
   faRightFromBracket,
 } from "@fortawesome/free-solid-svg-icons";
 
-const Header = ({
-  title = "Buyer dashboard",
+const BuyerHeader = ({
+  title = "Welcome to AgriBridge",
   switchLabel = "Switch to Farmer",
   onSwitchRole,
   onNotificationsClick,
@@ -16,56 +17,58 @@ const Header = ({
   onLogoutClick,
 }) => {
   return (
-    <header className="flex w-full flex-col gap-4 border-b border-gray-200 bg-white px-8 py-6 sm:flex-row sm:items-center sm:justify-between">
-      <h2 className="text-2xl font-bold tracking-tight text-gray-900">
-        {title}
-      </h2>
+    <header className="flex w-full flex-col gap-4 border-b border-gray-200 bg-white px-6 py-5 shadow-sm md:flex-row md:items-center md:justify-between lg:px-10">
+      
+      {/* Header title */}
+      <div>
+        <p className="text-sm font-medium text-gray-500">
+          Buyer Portal
+        </p>
+        <h2 className="text-2xl font-bold tracking-tight text-[#12432f]">
+          {title}
+        </h2>
+      </div>
 
-      <div className="flex flex-wrap items-center gap-4">
+      {/* Header actions */}
+      <div className="flex flex-wrap items-center gap-5">
         <button
           type="button"
           onClick={onSwitchRole}
-          className="flex items-center gap-2 rounded-lg border border-[#12432f] bg-white px-5 py-3 text-base font-medium text-gray-900 transition-colors hover:bg-gray-50"
+          className="flex items-center gap-2 rounded-lg border border-[#12432f] bg-white px-5 py-3 font-medium text-[#12432f] transition hover:bg-green-50"
         >
-          <FontAwesomeIcon icon={faRepeat} className="text-sm" />
+          <FontAwesomeIcon icon={faRepeat} />
           <span>{switchLabel}</span>
         </button>
 
-        <div className="flex items-center gap-3 text-sm font-medium text-gray-600">
-          <button
-            type="button"
-            onClick={onNotificationsClick}
-            className="flex items-center gap-1.5 transition-colors hover:text-gray-900"
-          >
-            <FontAwesomeIcon icon={faBell} />
-            <span>Notifications</span>
-          </button>
+        <button
+          type="button"
+          onClick={onNotificationsClick}
+          className="flex items-center gap-2 font-medium text-gray-600 transition hover:text-[#12432f]"
+        >
+          <FontAwesomeIcon icon={faBell} />
+          <span>Notifications</span>
+        </button>
 
-          <span aria-hidden="true">·</span>
+        <button
+          type="button"
+          onClick={onProfileClick}
+          className="flex items-center gap-2 font-medium text-gray-600 transition hover:text-[#12432f]"
+        >
+          <FontAwesomeIcon icon={faUser} />
+          <span>Profile</span>
+        </button>
 
-          <button
-            type="button"
-            onClick={onProfileClick}
-            className="flex items-center gap-1.5 transition-colors hover:text-gray-900"
-          >
-            <FontAwesomeIcon icon={faUser} />
-            <span>Profile</span>
-          </button>
-
-          <span aria-hidden="true">·</span>
-
-          <button
-            type="button"
-            onClick={onLogoutClick}
-            className="flex items-center gap-1.5 transition-colors hover:text-red-600"
-          >
-            <FontAwesomeIcon icon={faRightFromBracket} />
-            <span>Logout</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={onLogoutClick}
+          className="flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 font-medium text-red-600 transition hover:bg-red-100"
+        >
+          <FontAwesomeIcon icon={faRightFromBracket} />
+          <span>Logout</span>
+        </button>
       </div>
     </header>
   );
 };
 
-export default Header;
+export default BuyerHeader;
