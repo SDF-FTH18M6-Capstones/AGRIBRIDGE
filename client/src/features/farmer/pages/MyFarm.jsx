@@ -1,5 +1,5 @@
-
 import { useEffect, useState } from "react";
+import api from "../../../services/api";
 
 const PROFILE_KEY = "agribridge-farmer-profile";
 const VERIFICATION_KEY = "agribridge-farmer-verification";
@@ -49,6 +49,8 @@ function readInitialProfile() {
 function MyFarm() {
   const [profile, setProfile] = useState(readInitialProfile);
   const [message, setMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
   const inputClass =
     "w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-[#168343] focus:ring-2 focus:ring-green-100";
@@ -56,24 +58,61 @@ function MyFarm() {
   const labelClass = "mb-2 block text-sm font-medium text-gray-700";
 
   useEffect(() => {
+    let isMounted = true;
+
+    const loadBackendProfile = async () => {
+      try {
+        const response = await api.get("/profiles/me");
+
+        const farmerProfile = response.data?.data?.farmer_profile;
+
+        if (isMounted && farmerProfile) {
+          setProfile((previous) => ({
+            ...previous,
+            farmName: farmerProfile.farm_name || previous.farmName,
+            location: farmerProfile.location || previous.location,
+          }));
+        }
+      } catch (error) {
+        console.error("Failed to load farmer profile:", error);
+
+        if (isMounted) {
+          setMessage(
+            error.message || "Could not load your farm profile."
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
     const handleStorageSync = (event) => {
       if (
         event.key === PROFILE_KEY ||
         event.key === VERIFICATION_KEY ||
         event.key === null
       ) {
-        setProfile(readInitialProfile());
+        setProfile((previous) => ({
+          ...readInitialProfile(),
+          farmName: previous.farmName,
+          location: previous.location,
+        }));
       }
     };
 
     const refreshOnFocus = () => {
-      setProfile(readInitialProfile());
+      handleStorageSync({ key: null });
     };
+
+    loadBackendProfile();
 
     window.addEventListener("storage", handleStorageSync);
     window.addEventListener("focus", refreshOnFocus);
 
     return () => {
+      isMounted = false;
       window.removeEventListener("storage", handleStorageSync);
       window.removeEventListener("focus", refreshOnFocus);
     };
@@ -95,40 +134,48 @@ function MyFarm() {
 
     if (!file) return;
 
-    if (!file.type.startsWith("image/")) {
-      setMessage("Please select a valid image.");
-      return;
-    }
-
     const reader = new FileReader();
 
-    reader.onload = () => {
+    reader.onloadend = () => {
       setProfile((previous) => ({
         ...previous,
         photo: reader.result,
       }));
-
-      setMessage("");
-    };
-
-    reader.onerror = () => {
-      setMessage("Could not upload the photo. Please try again.");
     };
 
     reader.readAsDataURL(file);
   };
 
-  const handleSave = (event) => {
+  const handleSave = async (event) => {
     event.preventDefault();
 
+    const farmName = profile.farmName.trim();
+    const location = profile.location.trim();
+
+    if (farmName.length < 2 || location.length < 2) {
+      setMessage("Please enter a valid farm name and location.");
+      return;
+    }
+
+    setIsSaving(true);
+    setMessage("");
+
     try {
+      const response = await api.put("/profiles/me", {
+        profile_type: "farmer",
+        farm_name: farmName,
+        location: location,
+      });
+
+      const savedFarmerProfile = response.data.data;
+
       const profileToSave = {
         photo: profile.photo,
         fullName: profile.fullName.trim(),
         phone: profile.phone.trim(),
         countyAndSubCounty: profile.countyAndSubCounty.trim(),
-        farmName: profile.farmName.trim(),
-        location: profile.location.trim(),
+        farmName: savedFarmerProfile.farm_name,
+        location: savedFarmerProfile.location,
         crops: profile.crops.trim(),
         farmSize: profile.farmSize.trim(),
         updatedAt: new Date().toISOString(),
@@ -165,12 +212,8 @@ function MyFarm() {
             subCounty:
               subCountyParts.join(", ") ||
               existingVerification.form.subCounty,
-            farmName:
-              profileToSave.farmName ||
-              existingVerification.form.farmName,
-            farmLocation:
-              profileToSave.location ||
-              existingVerification.form.farmLocation,
+            farmName: profileToSave.farmName,
+            farmLocation: profileToSave.location,
             crops:
               profileToSave.crops ||
               existingVerification.form.crops,
@@ -186,12 +229,27 @@ function MyFarm() {
         );
       }
 
+      setProfile((previous) => ({
+        ...previous,
+        farmName: savedFarmerProfile.farm_name,
+        location: savedFarmerProfile.location,
+      }));
+
       window.dispatchEvent(new Event("agribridge-update"));
 
-      setMessage("Your farm profile has been saved successfully.");
+      setMessage(
+        response.data.message ||
+          "Your farm profile has been saved successfully."
+      );
     } catch (error) {
-      console.error("Could not save profile:", error);
-      setMessage("Error saving changes. Please try again.");
+      console.error("Could not save farmer profile:", error);
+
+      setMessage(
+        error.message ||
+          "Error saving your farm profile. Please try again."
+      );
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -305,13 +363,6 @@ function MyFarm() {
                 />
               </div>
             </div>
-
-            <button
-              type="submit"
-              className="mt-5 rounded-lg bg-[#174832] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#103724]"
-            >
-              Save changes
-            </button>
           </section>
 
           {/* Farm profile */}
@@ -388,6 +439,14 @@ function MyFarm() {
             </p>
           </section>
         </div>
+
+        <button
+          type="submit"
+          disabled={isSaving || isLoading}
+          className="mt-5 rounded-lg bg-[#174832] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#103724] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isSaving ? "Saving..." : "Save changes"}
+        </button>
       </form>
     </div>
   );

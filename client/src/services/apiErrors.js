@@ -1,17 +1,23 @@
-
 export const handleApiError = (error) => {
   if (error.response) {
     const status = error.response.status;
 
+    const responseMessage = error.response.data?.message;
+    const responseError = error.response.data?.error;
+
     let message =
-      error.response.data?.message ||
-      error.response.data?.error;
+      typeof responseMessage === "string"
+        ? responseMessage
+        : typeof responseError === "string"
+          ? responseError
+          : responseError?.message;
 
     if (status === 401) {
       message = message || "Unauthorized. Please log in again.";
     } else if (status === 403) {
       message =
-        message || "You do not have permission to perform this action.";
+        message ||
+        "You do not have permission to perform this action.";
     } else {
       message =
         message || "Something went wrong. Please try again.";
@@ -33,7 +39,8 @@ export const handleApiError = (error) => {
   }
 
   return {
-    message: error.message || "An unexpected error occurred.",
+    message:
+      error.message || "An unexpected error occurred.",
     status: null,
     data: null,
   };
