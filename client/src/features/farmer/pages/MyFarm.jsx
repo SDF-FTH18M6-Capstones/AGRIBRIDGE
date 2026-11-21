@@ -1,5 +1,5 @@
-
 import { useEffect, useState } from "react";
+import api from "../../../services/api";
 
 const PROFILE_KEY = "agribridge-farmer-profile";
 const VERIFICATION_KEY = "agribridge-farmer-verification";
@@ -114,24 +114,61 @@ function MyFarm() {
     "mb-2 block text-sm font-medium text-gray-700";
 
   useEffect(() => {
+    let isMounted = true;
+
+    const loadBackendProfile = async () => {
+      try {
+        const response = await api.get("/profiles/me");
+
+        const farmerProfile = response.data?.data?.farmer_profile;
+
+        if (isMounted && farmerProfile) {
+          setProfile((previous) => ({
+            ...previous,
+            farmName: farmerProfile.farm_name || previous.farmName,
+            location: farmerProfile.location || previous.location,
+          }));
+        }
+      } catch (error) {
+        console.error("Failed to load farmer profile:", error);
+
+        if (isMounted) {
+          setMessage(
+            error.message || "Could not load your farm profile."
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
     const handleStorageSync = (event) => {
       if (
         event.key === PROFILE_KEY ||
         event.key === VERIFICATION_KEY ||
         event.key === null
       ) {
-        setProfile(readInitialProfile());
+        setProfile((previous) => ({
+          ...readInitialProfile(),
+          farmName: previous.farmName,
+          location: previous.location,
+        }));
       }
     };
 
     const refreshOnFocus = () => {
-      setProfile(readInitialProfile());
+      handleStorageSync({ key: null });
     };
+
+    loadBackendProfile();
 
     window.addEventListener("storage", handleStorageSync);
     window.addEventListener("focus", refreshOnFocus);
 
     return () => {
+      isMounted = false;
       window.removeEventListener("storage", handleStorageSync);
       window.removeEventListener("focus", refreshOnFocus);
     };
@@ -178,7 +215,7 @@ function MyFarm() {
     }
   };
 
-  const handleSave = (event) => {
+  const handleSave = async (event) => {
     event.preventDefault();
 
     setSaving(true);
@@ -266,6 +303,12 @@ function MyFarm() {
           verificationError
         );
       }
+
+      setProfile((previous) => ({
+        ...previous,
+        farmName: savedFarmerProfile.farm_name,
+        location: savedFarmerProfile.location,
+      }));
 
       window.dispatchEvent(new Event("agribridge-update"));
 

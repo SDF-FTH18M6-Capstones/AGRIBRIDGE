@@ -1,6 +1,6 @@
-
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import api from "../../../services/api";
 
 const ADD_PRODUCT_PATH = "/farmer/products/new";
 const STORAGE_KEY = "agribridge-farmer-products";
@@ -32,20 +32,91 @@ const formatKsh = (amount) =>
 const loadProducts = () => {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : sampleProducts;
+    return saved ? JSON.parse(saved) : [];
   } catch (error) {
     console.error("Failed to load products:", error);
-    return sampleProducts;
+    return [];
   }
+};
+
+const mapBackendProduct = (product) => {
+  const quality = (product.quality || "").toLowerCase();
+
+  const availability = quality.includes("soon")
+    ? "Upcoming"
+    : quality.includes("recent")
+      ? "On farm"
+      : "Ready";
+
+  const statusMap = {
+    available: "Active",
+    sold_out: "Sold out",
+    inactive: "Unavailable",
+  };
+
+  return {
+    id: product.product_id,
+    name: product.product_name,
+    description: product.description || "",
+    price: Number(product.price),
+    qty: Number(product.quantity_available),
+    unit: product.unit,
+    availability,
+    quality: product.quality || "",
+    harvestDate: product.availability_date || "",
+    status: statusMap[product.status] || "Unavailable",
+    imageUrl: product.image_url || "",
+  };
 };
 
 function FarmerMyProducts() {
   const [products, setProducts] = useState(loadProducts);
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("All");
   const [qtyDraft, setQtyDraft] = useState({});
   const [editingId, setEditingId] = useState(null);
   const [editDraft, setEditDraft] = useState({});
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+
+    const fetchMyProducts = async () => {
+      try {
+        const response = await api.get("/products/mine");
+        const serverProducts = response.data?.data || [];
+
+        if (!Array.isArray(serverProducts)) {
+          throw new Error("The server returned an invalid products list.");
+        }
+
+        const mappedProducts = serverProducts.map(mapBackendProduct);
+
+        if (mounted) {
+          setProducts(mappedProducts);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(mappedProducts));
+        }
+      } catch (error) {
+        console.error("Unable to load farmer products:", error);
+
+        if (mounted) {
+          setMessage(
+            error.message || "Unable to load your products from the server."
+          );
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchMyProducts();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const inputClass =
     "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 outline-none transition focus:border-[#168343] focus:ring-2 focus:ring-green-100";
@@ -222,7 +293,11 @@ function FarmerMyProducts() {
           ))}
         </select>
 
-        {visible.length === 0 ? (
+        {loading ? (
+          <p className="text-sm text-gray-500">
+            Loading your products...
+          </p>
+        ) : visible.length === 0 ? (
           <p className="text-sm text-gray-500">
             {products.length === 0
               ? "You have no products yet. Add your first product."
@@ -463,4 +538,3 @@ function FarmerMyProducts() {
 }
 
 export default FarmerMyProducts;
-
