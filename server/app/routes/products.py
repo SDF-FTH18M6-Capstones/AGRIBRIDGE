@@ -1,9 +1,23 @@
+import os
 from decimal import Decimal, InvalidOperation
+from uuid import uuid4
+from urllib.parse import urlparse
 
-from flask import Blueprint, jsonify, request
+from flask import (
+    Blueprint,
+    current_app,
+    jsonify,
+    request,
+    send_from_directory,
+    url_for,
+)
+from werkzeug.utils import secure_filename
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from marshmallow import ValidationError
 from sqlalchemy import or_
+from sqlalchemy.exc import SQLAlchemyError
+from io import BytesIO
+from PIL import Image, UnidentifiedImageError
 
 from app.extensions import db
 from app.models import (
@@ -164,6 +178,33 @@ def get_products():
     return jsonify({
         "data": product_list_schema.dump(products)
     }), 200
+
+
+@products_bp.get("/mine")
+@jwt_required()
+def get_my_products():
+    user_id = int(get_jwt_identity())
+
+    farmer_profile = FarmerProfile.query.filter_by(
+        user_id=user_id
+    ).first()
+
+    if farmer_profile is None:
+        return jsonify({
+            "error": {
+                "code": "FARMER_PROFILE_NOT_FOUND",
+                "message": "Farmer profile not found"
+            }
+        }), 403
+
+    products = Product.query.filter_by(
+        farmer_id=farmer_profile.farmer_id
+    ).order_by(Product.product_id).all()
+
+    return jsonify({
+        "data": product_list_schema.dump(products)
+    }), 200
+
 
 
 @products_bp.get("/<int:product_id>")
@@ -369,6 +410,15 @@ def delete_product(product_id):
 
     return "", 204
 
+
+
+@products_bp.get("/uploads/<path:filename>")
+def serve_product_image(filename):
+    upload_folder = os.path.join(
+        current_app.instance_path, "uploads", "products"
+    )
+    return send_from_directory(upload_folder, filename)
+
 @products_bp.get("/<int:product_id>/images")
 def get_product_images(product_id):
     product = db.session.get(Product, product_id)
@@ -425,41 +475,174 @@ def add_product_image(product_id):
             }
         }), 403
 
-    data = request.get_json(silent=True)
 
-    if not isinstance(data, dict):
-        return jsonify({
-            "error": {
-                "code": "INVALID_JSON",
-                "message": "Request body must be a JSON object"
-            }
-        }), 400
+    saved_file_path = None
+    uploaded_file = request.files.get("image")
 
-    try:
-        validated_data = single_product_image_schema.load(data)
-    except ValidationError as error:
-        return jsonify({
-            "error": {
-                "code": "VALIDATION_ERROR",
-                "message": "Invalid image data",
-                "fields": error.messages
-            }
-        }), 400
+    if uploaded_file is not None:
+        if not uploaded_file.filename:
+            return jsonify({
+                "error": {
+                    "code": "INVALID_IMAGE",
+                    "message": "Please select an image file"
+                }
+            }), 400
+
+        safe_original_name = secure_filename(uploaded_file.filename)
+        extension = os.path.splitext(safe_original_name)[1].lower()
+
+        allowed_types = {
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".png": "image/png",
+            ".webp": "image/webp",
+            ".gif": "image/gif",
+        }
+
+        if extension not in allowed_types:
+            return jsonify({
+                "error": {
+                    "code": "INVALID_IMAGE_TYPE",
+                    "message": "Only JPG, JPEG, PNG, WEBP and GIF images are allowed"
+                }
+            }), 400
+
+        if uploaded_file.mimetype != allowed_types[extension]:
+            return jsonify({
+                "error": {
+                    "code": "INVALID_IMAGE_TYPE",
+                    "message": "The uploaded file type does not match its extension"
+                }
+            }), 400
+
+        uploaded_file.stream.seek(0, os.SEEK_END)
+        file_size = uploaded_file.stream.tell()
+        uploaded_file.stream.seek(0)
+
+        if file_size > 5 * 1024 * 1024:
+            return jsonify({
+                "error": {
+                    "code": "IMAGE_TOO_LARGE",
+                    "message": "Image size must not exceed 5MB"
+                }
+            }), 400
+        expected_formats = {
+            ".jpg": "JPEG",
+            ".jpeg": "JPEG",
+            ".png": "PNG",
+            ".webp": "WEBP",
+            ".gif": "GIF",
+        }
+
+        try:
+            uploaded_file.stream.seek(0)
+
+            with Image.open(uploaded_file.stream) as image:
+                actual_format = image.format
+                image.verify()
+
+            uploaded_file.stream.seek(0)
+
+            with Image.open(uploaded_file.stream) as image:
+                image.load()
+
+        except (
+            UnidentifiedImageError,
+            OSError,
+            ValueError,
+            Image.DecompressionBombError
+        ):
+            return jsonify({
+                "error": {
+                    "code": "INVALID_IMAGE_CONTENT",
+                    "message": "The uploaded file is not a valid image"
+                }
+            }), 400
+
+        if actual_format != expected_formats[extension]:
+            return jsonify({
+                "error": {
+                    "code": "INVALID_IMAGE_CONTENT",
+                    "message": "The actual image format does not match its file extension"
+                }
+            }), 400
+
+        uploaded_file.stream.seek(0)
+
+        upload_folder = os.path.join(
+            current_app.instance_path, "uploads", "products"
+        )
+        os.makedirs(upload_folder, exist_ok=True)
+
+        stored_filename = f"{uuid4().hex}{extension}"
+        saved_file_path = os.path.join(upload_folder, stored_filename)
+        uploaded_file.save(saved_file_path)
+
+        image_url = url_for(
+            "products.serve_product_image",
+            filename=stored_filename,
+            _external=True
+        )
+
+    else:
+        data = request.get_json(silent=True)
+
+        if not isinstance(data, dict):
+            return jsonify({
+                "error": {
+                    "code": "INVALID_JSON",
+                    "message": "Request body must be a JSON object or an uploaded image file"
+                }
+            }), 400
+
+        try:
+            validated_data = single_product_image_schema.load(data)
+        except ValidationError as error:
+            return jsonify({
+                "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "Invalid image data",
+                    "fields": error.messages
+                }
+            }), 400
+
+        image_url = validated_data["image_url"]
 
     new_image = ProductImage(
         product_id=product_id,
-        image_url=validated_data["image_url"]
+        image_url=image_url
     )
 
-    db.session.add(new_image)
-    db.session.commit()
+    try:
+        db.session.add(new_image)
+        db.session.commit()
+    except SQLAlchemyError:
+        db.session.rollback()
+
+        if saved_file_path and os.path.exists(saved_file_path):
+            try:
+                os.remove(saved_file_path)
+            except OSError:
+                current_app.logger.exception(
+                    "Could not remove uploaded image after database failure"
+                )
+
+        current_app.logger.exception(
+            "Could not save product image to the database"
+        )
+
+        return jsonify({
+            "error": {
+                "code": "IMAGE_SAVE_FAILED",
+                "message": "Could not save the product image"
+            }
+        }), 500
 
     return jsonify({
         "success": True,
         "message": "Product image added successfully",
         "data": ProductImageSchema().dump(new_image)
     }), 201
-
 
 @products_bp.delete("/<int:product_id>/images/<int:image_id>")
 @jwt_required()
@@ -509,7 +692,40 @@ def delete_product_image(product_id, image_id):
             }
         }), 404
 
+    parsed_image_url = urlparse(image.image_url)
+    image_filename = os.path.basename(parsed_image_url.path)
+
+    expected_image_path = url_for(
+        "products.serve_product_image",
+        filename=image_filename
+    )
+
+    local_file_path = None
+
+    if (
+        parsed_image_url.netloc == urlparse(request.host_url).netloc
+        and parsed_image_url.path == expected_image_path
+        and image_filename
+        and secure_filename(image_filename) == image_filename
+    ):
+        upload_folder = os.path.join(
+            current_app.instance_path, "uploads", "products"
+        )
+
+        candidate_path = os.path.join(upload_folder, image_filename)
+
+        if os.path.isfile(candidate_path):
+            local_file_path = candidate_path
+
     db.session.delete(image)
     db.session.commit()
+
+    if local_file_path:
+        try:
+            os.remove(local_file_path)
+        except OSError:
+            current_app.logger.exception(
+                "Could not remove deleted product image file"
+            )
 
     return "", 204
