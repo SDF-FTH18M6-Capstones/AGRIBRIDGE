@@ -1,14 +1,15 @@
+
 export const handleApiError = (error) => {
   if (error.response) {
     const status = error.response.status;
     const responseData = error.response.data;
 
+    const responseError = responseData?.error;
+
     const message =
-      responseData?.error?.message ||
+      responseError?.message ||
       responseData?.message ||
-      (typeof responseData?.error === "string"
-        ? responseData.error
-        : null) ||
+      (typeof responseError === "string" ? responseError : null) ||
       (status === 401
         ? "Unauthorized. Please log in again."
         : status === 403

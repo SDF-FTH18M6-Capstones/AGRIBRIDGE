@@ -1,120 +1,13 @@
-
-// Chan has done Marketplace. I will not be pushing it, I have only used this one so Mktplace doesnt refuse to build
-
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-
-const products = [
-  {
-    id: 1,
-    name: "Fresh Tomatoes",
-    category: "Vegetables",
-    price: 120,
-    unit: "kg",
-    quantity: 200,
-    county: "Nakuru",
-    farmer: "Jane Wanjiku",
-    verified: true,
-    availability: "Ready",
-    harvested: "2026-11-12",
-    minimumOrder: 1,
-    description: "Fresh, locally grown tomatoes.",
-    image:
-      "https://images.unsplash.com/photo-1748843328433-1c8a51513f6e?w=600&q=80",
-  },
-  {
-    id: 2,
-    name: "Ripe Mangoes",
-    category: "Fruits",
-    price: 150,
-    unit: "kg",
-    quantity: 120,
-    county: "Makueni",
-    farmer: "Peter Mutua",
-    verified: true,
-    availability: "Ready",
-    harvested: "2026-11-10",
-    minimumOrder: 2,
-    description: "Sweet, ripe mangoes from Makueni.",
-    image:
-      "https://images.unsplash.com/photo-1605027990121-cbae9e0642df?w=600&q=80",
-  },
-  {
-    id: 3,
-    name: "Dry Maize",
-    category: "Cereals and grains",
-    price: 65,
-    unit: "kg",
-    quantity: 500,
-    county: "Uasin Gishu",
-    farmer: "David Kiptoo",
-    verified: true,
-    availability: "Ready",
-    harvested: "2026-10-25",
-    minimumOrder: 10,
-    description: "Clean, dried maize ready for sale.",
-    image:
-      "https://images.unsplash.com/photo-1770617475595-f80b09cbbecd?w=600&q=80",
-  },
-  {
-    id: 4,
-    name: "Irish Potatoes",
-    category: "Tubers",
-    price: 80,
-    unit: "kg",
-    quantity: 300,
-    county: "Nyandarua",
-    farmer: "Mary Njeri",
-    verified: true,
-    availability: "On farm",
-    harvested: "",
-    minimumOrder: 5,
-    description: "Quality Irish potatoes grown in Nyandarua.",
-    image:
-      "https://upload.wikimedia.org/wikipedia/commons/3/34/Irish_Potato_Kenya.jpg",
-  },
-  {
-    id: 5,
-    name: "Fresh Sukuma Wiki",
-    category: "Vegetables",
-    price: 40,
-    unit: "bunch",
-    quantity: 150,
-    county: "Kiambu",
-    farmer: "Samuel Kamau",
-    verified: false,
-    availability: "Ready",
-    harvested: "2026-11-13",
-    minimumOrder: 1,
-    description: "Fresh leafy greens harvested locally.",
-    image:
-      "https://greenspoon.co.ke/wp-content/uploads/2021/09/3J2A8889-720x480.jpg",
-  },
-  {
-    id: 6,
-    name: "Sweet Potatoes",
-    category: "Tubers",
-    price: 90,
-    unit: "kg",
-    quantity: 180,
-    county: "Bungoma",
-    farmer: "Grace Wekesa",
-    verified: true,
-    availability: "Upcoming",
-    harvested: "",
-    minimumOrder: 3,
-    description: "Sweet potatoes from Bungoma farms.",
-    image:
-      "https://images.unsplash.com/photo-1673533537845-7f7498faf85f?w=600&q=80",
-  },
-];
+import api from "../../services/api";
 
 const categories = [
   "All categories",
   "Vegetables",
   "Fruits",
-  "Cereals and grains",
-  "Tubers",
+  "Grains",
+  "Roots & Tubers",
 ];
 
 const formatKES = (amount) =>
@@ -143,6 +36,10 @@ export default function MarketplacePage() {
   const [page, setPage] = useState(1);
   const [selectedProduct, setSelectedProduct] = useState(null);
 
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState("");
+
   useEffect(() => {
     const nextQuery = searchParams.get("q") || "";
     const nextCategory =
@@ -155,6 +52,67 @@ export default function MarketplacePage() {
     setCounty(nextCounty);
     setPage(1);
   }, [searchParams]);
+
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchProducts = async () => {
+      try {
+        setLoading(true);
+        setFetchError("");
+
+        const response = await api.get("/products/search", {
+          params: {
+            availability: "available",
+            per_page: 100,
+          },
+        });
+
+        const backendProducts = response.data?.data || [];
+
+        const mappedProducts = backendProducts.map((product) => ({
+          id: product.product_id,
+          name: product.product_name,
+          category: product.category_name || "Other",
+          price: Number(product.price),
+          unit: product.unit,
+          quantity: Number(product.quantity_available),
+          county: product.farmer_location || "Location not provided",
+          farmer: product.farm_name || "Local farmer",
+          verified: false,
+          availability:
+            product.quality === "Available soon" ? "Upcoming" : "Ready",
+          harvested: product.availability_date || "",
+          minimumOrder: 1,
+          description: product.description || "",
+          image: product.image_url || "",
+        }));
+
+        if (!cancelled) {
+          setProducts(mappedProducts);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setFetchError(
+            error.response?.data?.message ||
+            error.message ||
+            "Unable to load marketplace products."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchProducts();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const pageSize = 6;
 
@@ -225,6 +183,7 @@ export default function MarketplacePage() {
     minPrice,
     maxPrice,
     sortBy,
+    products,
   ]);
 
   const pageCount = Math.ceil(filteredProducts.length / pageSize);
@@ -468,7 +427,22 @@ export default function MarketplacePage() {
               </span>
             </div>
 
-            {visibleProducts.length === 0 ? (
+            {loading ? (
+              <div className="rounded-xl border bg-white p-12 text-center">
+                <p className="text-gray-600">
+                  Loading available produce...
+                </p>
+              </div>
+            ) : fetchError ? (
+              <div className="rounded-xl border border-red-200 bg-white p-12 text-center">
+                <h3 className="text-lg font-semibold text-red-800">
+                  Unable to load products
+                </h3>
+                <p className="mt-2 text-gray-600">
+                  {fetchError}
+                </p>
+              </div>
+            ) : visibleProducts.length === 0 ? (
               <div className="rounded-xl border bg-white p-12 text-center">
                 <h3 className="text-lg font-semibold">
                   No products found
@@ -494,17 +468,18 @@ export default function MarketplacePage() {
                     className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition hover:shadow-md"
                   >
                     <div className="h-44 bg-green-50">
-                      <img
-                        src={product.image}
-                        alt={product.name}
-                        loading="lazy"
-                        className="h-full w-full object-cover"
-                        onError={(event) => {
-                          event.currentTarget.onerror = null;
-                          event.currentTarget.src =
-                            "https://images.unsplash.com/photo-1542838132-92c53300491e?w=600&q=80";
-                        }}
-                      />
+                      {product.image ? (
+                        <img
+                          src={product.image}
+                          alt={product.name}
+                          loading="lazy"
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-sm text-gray-500">
+                          No product image uploaded
+                        </div>
+                      )}
                     </div>
 
                     <div className="p-5">
@@ -620,16 +595,17 @@ export default function MarketplacePage() {
                 </button>
               </div>
 
-              <img
-                src={selectedProduct.image}
-                alt={selectedProduct.name}
-                className="mt-4 h-56 w-full rounded-xl object-cover"
-                onError={(event) => {
-                  event.currentTarget.onerror = null;
-                  event.currentTarget.src =
-                    "https://images.unsplash.com/photo-1542838132-92c53300491e?w=600&q=80";
-                }}
-              />
+              {selectedProduct.image ? (
+                <img
+                  src={selectedProduct.image}
+                  alt={selectedProduct.name}
+                  className="mt-4 h-56 w-full rounded-xl object-cover"
+                />
+              ) : (
+                <div className="mt-4 flex h-56 w-full items-center justify-center rounded-xl bg-green-50 text-sm text-gray-500">
+                  No product image uploaded
+                </div>
+              )}
 
               <p className="mt-4 text-xl font-bold text-green-800">
                 {formatKES(selectedProduct.price)} /{" "}
