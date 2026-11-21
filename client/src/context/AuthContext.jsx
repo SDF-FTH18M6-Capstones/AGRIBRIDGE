@@ -106,6 +106,25 @@ export function AuthProvider({ children }) {
     });
   }, []);
 
+useEffect(() => {
+  const handleUnauthorized = () => {
+    logout();
+  };
+
+  window.addEventListener(
+    "agribridge:unauthorized",
+    handleUnauthorized
+  );
+
+  return () => {
+    window.removeEventListener(
+      "agribridge:unauthorized",
+      handleUnauthorized
+    );
+  };
+}, [logout]);
+
+
   const updateUser = useCallback((updatedUser) => {
     if (
       !updatedUser ||

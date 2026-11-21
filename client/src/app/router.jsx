@@ -7,6 +7,8 @@ import AuthPage from "../features/auth/AuthPage.jsx";
 import LoginPage from "../features/auth/LoginPage.jsx";
 import SignUpPage from "../features/auth/SignUpPage.jsx";
 import RoleSelectionPage from "../features/auth/RoleSelectionPage.jsx";
+import ForgotPasswordPage from "../features/auth/ForgotPasswordPage.jsx";
+import ResetPasswordPage from "../features/auth/ResetPasswordPage.jsx";
 import ProtectedRoute from "../components/auth/ProtectedRoute.jsx";
 
 // Checkout
@@ -78,6 +80,8 @@ const router = createBrowserRouter([
       { path: "register", element: <SignUpPage /> },
       { path: "select-role", element: <RoleSelectionPage /> },
       { path: "auth", element: <AuthPage /> },
+      { path: "forgot-password", element: <ForgotPasswordPage /> },
+      { path: "reset-password", element: <ResetPasswordPage /> },
       { path: "checkout", element: <CheckoutPage /> },
       { path: "my-products", element: <Navigate to="/farmer/products" replace /> },
     ],
@@ -178,4 +182,3 @@ const router = createBrowserRouter([
 ]);
 
 export default router;
-
