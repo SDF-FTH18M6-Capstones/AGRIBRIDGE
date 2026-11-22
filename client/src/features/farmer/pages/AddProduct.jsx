@@ -1,10 +1,17 @@
+
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useDispatch } from "react-redux";
+
 import api from "../../../services/api";
+import {
+  createProduct,
+  updateOptimisticProduct,
+} from "../products/productSlice";
 
 const initialForm = {
   name: "",
-  category: "Vegetables",
+  category: "",
   description: "",
   price: "",
   quantity: "",
@@ -16,13 +23,6 @@ const initialForm = {
   farmName: "",
 };
 
-const categoryIds = {
-  Vegetables: 1,
-  Fruits: 2,
-  Grains: 3,
-  "Roots & Tubers": 4,
-};
-
 const steps = [
   "Product information",
   "Price and quantity",
@@ -32,9 +32,12 @@ const steps = [
 
 function AddProduct() {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
   const [currentStep, setCurrentStep] = useState(1);
   const [form, setForm] = useState(initialForm);
+  const [categories, setCategories] = useState([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [image, setImage] = useState("");
   const [imageName, setImageName] = useState("");
   const [imageFile, setImageFile] = useState(null);
@@ -43,6 +46,49 @@ function AddProduct() {
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState("");
 
+  // Load real categories from the database.
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadCategories = async () => {
+      try {
+        const response = await api.get("/categories/");
+        const loadedCategories = response.data?.data || [];
+
+        if (isMounted) {
+          setCategories(loadedCategories);
+
+          if (loadedCategories.length > 0) {
+            setForm((previous) => ({
+              ...previous,
+              category: String(loadedCategories[0].category_id),
+            }));
+          }
+        }
+      } catch (err) {
+        console.error("Could not load categories:", err);
+
+        if (isMounted) {
+          setError(
+            err.response?.data?.error?.message ||
+              "Could not load product categories. Please try again."
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setCategoriesLoading(false);
+        }
+      }
+    };
+
+    loadCategories();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Load the farmer's saved profile.
   useEffect(() => {
     let isMounted = true;
 
@@ -58,12 +104,12 @@ function AddProduct() {
             location: farmerProfile.location || "",
           }));
         }
-      } catch (error) {
-        console.error("Could not load existing farmer profile:", error);
+      } catch (err) {
+        console.error("Could not load farmer profile:", err);
 
         if (isMounted) {
           setProfileError(
-            "Your saved farm details could not be loaded. You can still enter your own details below."
+            "Your saved farm details could not be loaded. You can still enter your details below."
           );
         }
       } finally {
@@ -80,10 +126,22 @@ function AddProduct() {
     };
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (image) {
+        URL.revokeObjectURL(image);
+      }
+    };
+  }, [image]);
+
   const inputClass =
     "w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-gray-800 outline-none transition focus:border-green-700 focus:ring-2 focus:ring-green-100";
 
   const labelClass = "mb-2 block text-sm font-semibold text-gray-700";
+
+  const selectedCategory = categories.find(
+    (category) => String(category.category_id) === form.category
+  );
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -123,6 +181,16 @@ function AddProduct() {
         setError("Please enter the product name and description.");
         return false;
       }
+
+      if (categoriesLoading) {
+        setError("Please wait while product categories load.");
+        return false;
+      }
+
+      if (!form.category || !selectedCategory) {
+        setError("Please select a valid product category.");
+        return false;
+      }
     }
 
     if (currentStep === 2) {
@@ -139,7 +207,7 @@ function AddProduct() {
 
     if (currentStep === 3) {
       if (!form.location.trim() || !form.farmName.trim()) {
-        setError("Please complete your farm name and location in My Farm.");
+        setError("Please complete your farm name and location.");
         return false;
       }
     }
@@ -171,12 +239,27 @@ function AddProduct() {
   const publishProduct = async () => {
     if (publishing) return;
 
+    if (!form.category || !selectedCategory) {
+      setError("Please select a valid product category.");
+      setCurrentStep(1);
+      return;
+    }
+
     setPublishing(true);
     setError("");
 
     try {
+      const categoryId = Number(form.category);
+
+      // Save farm details first.
+      await api.put("/profiles/me", {
+        profile_type: "farmer",
+        farm_name: form.farmName.trim(),
+        location: form.location.trim(),
+      });
+
       const payload = {
-        category_id: categoryIds[form.category],
+        category_id: categoryId,
         product_name: form.name.trim(),
         description: form.description.trim(),
         price: String(Number(form.price)),
@@ -187,21 +270,37 @@ function AddProduct() {
         status: "available",
       };
 
-      if (!payload.category_id) {
-        throw new Error("Please select a valid product category.");
-      }
+      const tempId = `temp-${Date.now()}`;
 
+      const optimisticProduct = {
+        id: tempId,
+        category_id: categoryId,
+        name: form.name.trim(),
+        category: selectedCategory.category_name,
+        description: form.description.trim(),
+        price: Number(form.price),
+        qty: Number(form.quantity),
+        unit: form.unit,
+        availability:
+          form.harvestStatus === "Ready for harvest"
+            ? "Ready"
+            : form.harvestStatus === "Recently harvested"
+              ? "On farm"
+              : "Upcoming",
+        quality: form.harvestStatus,
+        harvestDate: form.harvestDate || "",
+        status: "Active",
+        imageUrl: image || "",
+      };
 
-      await api.put("/profiles/me", {
-        profile_type: "farmer",
-        farm_name: form.farmName.trim(),
-        location: form.location.trim(),
-      });
+      const savedProduct = await dispatch(
+        createProduct({
+          payload,
+          tempId,
+          optimisticProduct,
+        })
+      ).unwrap();
 
-      const response = await api.post("/products", payload);
-      const savedProduct = response.data.data;
-
-      let uploadedImageUrl = "";
       let imageUploadWarning = "";
 
       if (imageFile) {
@@ -210,69 +309,31 @@ function AddProduct() {
           imageFormData.append("image", imageFile);
 
           const imageResponse = await api.post(
-            `/products/${savedProduct.product_id}/images`,
+            `/products/${savedProduct.product.id}/images`,
             imageFormData
           );
 
-          uploadedImageUrl =
+          const uploadedImageUrl =
             imageResponse.data?.data?.image_url || "";
 
           if (!uploadedImageUrl) {
             throw new Error("The server did not return an image URL.");
           }
+
+          dispatch(
+            updateOptimisticProduct({
+              id: savedProduct.product.id,
+              changes: {
+                imageUrl: uploadedImageUrl,
+              },
+            })
+          );
         } catch (imageError) {
-          const status =
-            imageError?.status ?? imageError?.response?.status ?? null;
-
-          const message =
-            imageError?.message || "Unknown image upload error.";
-
-          console.error("Product image upload failed:", {
-            status,
-            message,
-            data: imageError?.data ?? imageError?.response?.data ?? null,
-          });
+          console.error("Product image upload failed:", imageError);
 
           imageUploadWarning =
-            `Product created, but image upload failed${status ? ` (HTTP ${status})` : ""}: ${message}`;
+            "Product created successfully, but its image could not be uploaded.";
         }
-      }
-
-
-      try {
-        const storedProducts = JSON.parse(
-          localStorage.getItem("agribridge-farmer-products") || "[]"
-        );
-
-        const existingProducts = Array.isArray(storedProducts)
-          ? storedProducts
-          : [];
-
-        const newProduct = {
-          id: savedProduct.product_id,
-          name: savedProduct.product_name,
-          category: form.category,
-          description: savedProduct.description,
-          price: Number(savedProduct.price),
-          quantity: Number(savedProduct.quantity_available),
-          unit: savedProduct.unit,
-          harvestStatus: savedProduct.quality,
-          harvestDate: savedProduct.availability_date || "",
-          county: form.county,
-          location: form.location.trim(),
-          farmName: form.farmName.trim(),
-          imageName,
-          imageUrl: uploadedImageUrl,
-          status: "Active",
-          createdAt: new Date().toISOString(),
-        };
-
-        localStorage.setItem(
-          "agribridge-farmer-products",
-          JSON.stringify([...existingProducts, newProduct])
-        );
-      } catch (storageError) {
-        console.warn("Product saved to the server, but local storage was not updated:", storageError);
       }
 
       navigate("/farmer/products", {
@@ -283,9 +344,15 @@ function AddProduct() {
       });
     } catch (err) {
       console.error("Unable to publish product:", err);
+
       setError(
-        err.message || "Unable to publish your product. Please try again."
+        typeof err === "string"
+          ? err
+          : err?.response?.data?.error?.message ||
+              err?.message ||
+              "Unable to publish your product. Please try again."
       );
+
       setPublishing(false);
     }
   };
@@ -315,6 +382,7 @@ function AddProduct() {
           <h2 className="font-bold text-gray-900">
             Product listing process
           </h2>
+
           <span className="text-sm font-semibold text-green-800">
             Step {currentStep} of 4
           </span>
@@ -330,6 +398,7 @@ function AddProduct() {
                     : "bg-gray-200"
                 }`}
               />
+
               <span className="hidden text-xs text-gray-600 sm:block">
                 {step}
               </span>
@@ -348,6 +417,12 @@ function AddProduct() {
         {profileError && (
           <div className="mb-5 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
             {profileError}
+          </div>
+        )}
+
+        {categoriesLoading && (
+          <div className="mb-5 rounded-lg bg-blue-50 p-3 text-sm text-blue-800">
+            Loading product categories...
           </div>
         )}
 
@@ -380,18 +455,35 @@ function AddProduct() {
             </div>
 
             <div>
-              <label className={labelClass}>Category</label>
+              <label className={labelClass}>Category *</label>
               <select
                 className={inputClass}
                 name="category"
                 value={form.category}
                 onChange={handleChange}
+                disabled={categoriesLoading || categories.length === 0}
               >
-                <option value="Vegetables">Vegetables</option>
-                <option value="Fruits">Fruits</option>
-                <option value="Grains">Grains</option>
-                <option value="Roots & Tubers">Roots & Tubers</option>
+                <option value="">
+                  {categoriesLoading
+                    ? "Loading categories..."
+                    : "Select a category"}
+                </option>
+
+                {categories.map((category) => (
+                  <option
+                    key={category.category_id}
+                    value={String(category.category_id)}
+                  >
+                    {category.category_name}
+                  </option>
+                ))}
               </select>
+
+              {!categoriesLoading && categories.length === 0 && (
+                <p className="mt-1 text-xs text-red-600">
+                  No categories were returned. Please try refreshing the page.
+                </p>
+              )}
             </div>
 
             <div>
@@ -414,8 +506,9 @@ function AddProduct() {
                 accept="image/*"
                 onChange={handleImage}
               />
+
               <p className="mt-1 text-xs text-gray-500">
-                Image must not exceed 2MB.
+                Image must not exceed 5MB.
               </p>
 
               {image && (
@@ -425,6 +518,7 @@ function AddProduct() {
                     alt="Product preview"
                     className="h-40 w-40 rounded-lg border object-cover"
                   />
+
                   <p className="mt-2 text-sm text-gray-600">
                     {imageName}
                   </p>
@@ -494,6 +588,7 @@ function AddProduct() {
               <p className="text-sm text-green-800">
                 Estimated listing value
               </p>
+
               <p className="mt-1 text-xl font-bold text-green-900">
                 KES{" "}
                 {(
@@ -511,6 +606,7 @@ function AddProduct() {
               <h2 className="text-lg font-bold text-gray-900">
                 Harvest and farm details
               </h2>
+
               <p className="mt-1 text-sm text-gray-500">
                 Give buyers information about availability and farm location.
               </p>
@@ -542,7 +638,7 @@ function AddProduct() {
             </div>
 
             <p className="text-xs text-gray-500">
-              Enter your own farm name and location. These details will be saved to your shared farm profile.
+              These details will be saved to your farm profile.
             </p>
 
             <div>
@@ -575,6 +671,7 @@ function AddProduct() {
               <h2 className="text-lg font-bold text-gray-900">
                 Review your listing
               </h2>
+
               <p className="mt-1 text-sm text-gray-500">
                 Check your product details before publishing.
               </p>
@@ -591,13 +688,16 @@ function AddProduct() {
             <div className="divide-y divide-gray-100 rounded-lg border border-gray-200">
               {[
                 ["Product", form.name],
-                ["Category", form.category],
+                ["Category", selectedCategory?.category_name || "Not selected"],
                 ["Description", form.description],
-                ["Price", `KES ${Number(form.price).toLocaleString("en-KE")} / ${form.unit}`],
+                [
+                  "Price",
+                  `KES ${Number(form.price).toLocaleString("en-KE")} / ${form.unit}`,
+                ],
                 ["Quantity", `${form.quantity} ${form.unit}`],
                 ["Harvest status", form.harvestStatus],
                 ["Harvest date", form.harvestDate || "Not specified"],
-                ["County", form.county || "Not provided in farm profile"],
+                ["County", form.county || "Not provided"],
                 ["Location", form.location],
                 ["Farm", form.farmName],
               ].map(([label, value]) => (
@@ -608,6 +708,7 @@ function AddProduct() {
                   <span className="text-sm font-semibold text-gray-600">
                     {label}
                   </span>
+
                   <span className="text-sm text-gray-900 sm:col-span-2">
                     {value}
                   </span>
@@ -648,7 +749,7 @@ function AddProduct() {
             <button
               type="button"
               onClick={publishProduct}
-              disabled={publishing}
+              disabled={publishing || categoriesLoading || categories.length === 0}
               className="rounded-lg bg-green-800 px-6 py-3 text-sm font-semibold text-white hover:bg-green-900 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {publishing ? "Publishing..." : "Publish product"}
