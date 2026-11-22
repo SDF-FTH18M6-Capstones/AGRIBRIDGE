@@ -1,6 +1,7 @@
 from flask import Flask
 from flask_cors import CORS
 
+from app.routes.farmer_verifications import farmer_verifications_bp
 from app.routes.orders import orders_bp
 from app.routes.payments import payments_bp
 from app.config import Config
@@ -53,6 +54,7 @@ def create_app(test_config=None):
     app.register_blueprint(products_bp, url_prefix="/api/products")
     app.register_blueprint(orders_bp, url_prefix="/api/orders")
     app.register_blueprint(payments_bp, url_prefix="/api/payments")
+    app.register_blueprint(farmer_verifications_bp, url_prefix="/api/farmer-verifications")
     app.register_blueprint(health_bp, url_prefix="/api")
     app.register_blueprint(profiles_bp, url_prefix="/api/profiles")
     app.register_blueprint(categories_bp, url_prefix="/api/categories")
