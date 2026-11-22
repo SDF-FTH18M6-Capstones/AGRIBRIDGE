@@ -286,7 +286,7 @@ def admin_dashboard():
 
     admin = user.admin_profile
 
-    if admin is None or admin.status not in ADMIN_STATUSES:
+    if admin is None or admin.status != "active":
         return error_response(
             "ADMIN_ACCESS_DENIED",
             "An active administrator profile is required",

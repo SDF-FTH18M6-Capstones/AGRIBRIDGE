@@ -340,6 +340,25 @@ def test_admin_dashboard_returns_platform_summaries(client):
     assert data["payments"]["total"] == 1
     assert data["payments"]["paid_amount"] == 3000.0
 
+def test_suspended_admin_cannot_access_admin_dashboard(client):
+    admin_user = create_user("admin", "suspended@example.com")
+
+    suspended_admin = Admin(
+        user_id=admin_user.user_id,
+        status="suspended",
+    )
+
+    db.session.add(suspended_admin)
+    db.session.commit()
+
+    response = client.get(
+        "/api/dashboards/admin",
+        headers=auth_headers(admin_user),
+    )
+
+    assert response.status_code == 403
+    assert response.json["error"]["code"] == "ADMIN_ACCESS_DENIED"
+
 
 def test_dashboard_endpoints_require_authentication(client):
     endpoints = [

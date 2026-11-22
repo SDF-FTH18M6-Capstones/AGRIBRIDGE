@@ -12,7 +12,7 @@ MAX_PASSWORD_BYTES = 72
 
 ADMIN_STATUSES = ("active", "suspended")
 PRODUCT_STATUSES = ("available", "sold_out", "inactive")
-REQUEST_STATUSES = ("open", "fulfilled", "closed", "cancelled")
+REQUEST_STATUSES = ("open", "fulfilled", "closed", "cancelled", "matched")
 RESPONSE_STATUSES = ("pending", "accepted", "rejected", "withdrawn")
 ORDER_STATUSES = (
     "pending",
@@ -225,6 +225,11 @@ class BuyerProfile(db.Model):
     user = db.relationship("User", back_populates="buyer_profile")
     requests = db.relationship("BuyerRequest", back_populates="buyer")
     orders = db.relationship("Order", back_populates="buyer")
+    saved_products = db.relationship(
+        "SavedProduct",
+        back_populates="buyer",
+        cascade="all, delete-orphan",
+    )
 
 
 class FieldOfficer(db.Model):
@@ -359,6 +364,11 @@ class Product(TimestampMixin, db.Model):
         nullable=False,
         index=True,
     )
+    saved_by = db.relationship(
+        "SavedProduct",
+        back_populates="product",
+        cascade="all, delete-orphan",
+    )
     product_name = db.Column(db.Text, nullable=False)
     description = db.Column(db.Text)
     price = db.Column(Numeric(12, 2), nullable=False)
@@ -400,6 +410,11 @@ class Product(TimestampMixin, db.Model):
         "OrderItem",
         back_populates="product",
     )
+    saved_by = db.relationship(
+        "SavedProduct",
+        back_populates="product",
+        cascade="all, delete-orphan",
+    )
 
 
 class ProductImage(db.Model):
@@ -415,6 +430,52 @@ class ProductImage(db.Model):
     image_url = db.Column(db.Text, nullable=False)
 
     product = db.relationship("Product", back_populates="images")
+
+class SavedProduct(db.Model):
+    __tablename__ = "saved_products"
+
+    saved_product_id = db.Column(
+        db.Integer,
+        primary_key=True,
+    )
+
+    buyer_id = db.Column(
+        db.Integer,
+        db.ForeignKey("buyer_profiles.buyer_id"),
+        nullable=False,
+        index=True,
+    )
+
+    product_id = db.Column(
+        db.Integer,
+        db.ForeignKey("products.product_id"),
+        nullable=False,
+        index=True,
+    )
+
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        nullable=False,
+        server_default=db.func.now(),
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "buyer_id",
+            "product_id",
+            name="uq_saved_product_buyer_product",
+        ),
+    )
+
+    buyer = db.relationship(
+        "BuyerProfile",
+        back_populates="saved_products",
+    )
+
+    product = db.relationship(
+        "Product",
+        back_populates="saved_by",
+    )
 
 
 class BuyerRequest(TimestampMixin, db.Model):

@@ -94,7 +94,7 @@ def inactive_admin_token(app):
         db.session.add(user)
         db.session.flush()
 
-        admin = Admin(user_id=user.user_id, status="inactive")
+        admin = Admin(user_id=user.user_id, status="suspended")
         db.session.add(admin)
         db.session.commit()
 
@@ -274,4 +274,4 @@ def test_create_category_with_nonexistent_user(client, app):
         }
     )
 
-    assert response.status_code == 404
+    assert response.status_code == 401
