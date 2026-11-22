@@ -1,4 +1,3 @@
-
 from flask import Flask
 from flask_cors import CORS
 
@@ -15,6 +14,7 @@ from app.routes.responses import responses_bp
 from app.routes.reviews import reviews_bp
 from app.routes.health import health_bp
 from app.routes.dashboards import dashboards_bp
+from app.routes.saved_products import saved_products_bp
 
 from app.seed import register_seed_command
 
@@ -60,6 +60,7 @@ def create_app(test_config=None):
     app.register_blueprint(responses_bp, url_prefix="/api")
     app.register_blueprint(reviews_bp, url_prefix="/api")
     app.register_blueprint(dashboards_bp, url_prefix="/api/dashboards")
+    app.register_blueprint(saved_products_bp, url_prefix="/api/saved-products")
 
     register_seed_command(app)
 

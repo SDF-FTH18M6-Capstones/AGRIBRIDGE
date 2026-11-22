@@ -40,8 +40,8 @@ def create_category():
 
     if (
         user.role.role_name != "admin"
-        or user.admin is None
-        or user.admin.status != "active"
+        or user.admin_profile is None
+        or user.admin_profile.status != "active"
     ):
         return jsonify({
             "error": {

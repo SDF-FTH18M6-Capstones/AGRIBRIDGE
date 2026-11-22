@@ -274,7 +274,7 @@ def test_create_response_with_nonexistent_request(client, farmer_token):
 def test_create_response_to_closed_request(client, app, farmer_token, buyer_request):
     with app.app_context():
         request_record = db.session.get(BuyerRequest, buyer_request)
-        request_record.status = "matched"
+        request_record.status = "closed"
         db.session.commit()
 
     response = client.post(
