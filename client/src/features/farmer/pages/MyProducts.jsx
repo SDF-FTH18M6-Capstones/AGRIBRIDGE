@@ -1,22 +1,21 @@
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+
+import {
+  fetchMyProducts,
+  updateProduct,
+  deleteProduct,
+  updateOptimisticProduct,
+  restoreProduct,
+  addOptimisticProduct,
+} from "../products/productSlice";
 
 const ADD_PRODUCT_PATH = "/farmer/products/new";
-const STORAGE_KEY = "agribridge-farmer-products";
 
 const STATUSES = ["Draft", "Active", "Sold out", "Unavailable", "Archived"];
 const AVAILABILITY = ["Ready", "On farm", "Upcoming"];
-
-const sampleProducts = [
-  { id: 1, name: "Tomatoes", price: 120, unit: "kg", qty: 250, availability: "Ready", status: "Active" },
-  { id: 2, name: "Kale (sukuma wiki)", price: 40, unit: "bunch", qty: 600, availability: "Ready", status: "Active" },
-  { id: 3, name: "Potatoes", price: 55, unit: "kg", qty: 1200, availability: "On farm", status: "Active" },
-  { id: 4, name: "Green maize", price: 25, unit: "cob", qty: 0, availability: "Ready", status: "Sold out" },
-  { id: 5, name: "Cabbages", price: 60, unit: "head", qty: 300, availability: "Upcoming", status: "Draft" },
-  { id: 6, name: "Spinach", price: 35, unit: "bunch", qty: 80, availability: "Ready", status: "Unavailable" },
-  { id: 7, name: "Onions", price: 90, unit: "kg", qty: 150, availability: "Ready", status: "Archived" },
-];
 
 const statusClass = {
   Active: "bg-green-100 text-green-700",
@@ -29,23 +28,30 @@ const statusClass = {
 const formatKsh = (amount) =>
   `KSh ${Number(amount).toLocaleString("en-KE")}`;
 
-const loadProducts = () => {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : sampleProducts;
-  } catch (error) {
-    console.error("Failed to load products:", error);
-    return sampleProducts;
-  }
-};
-
 function FarmerMyProducts() {
-  const [products, setProducts] = useState(loadProducts);
+  const dispatch = useDispatch();
+
+  const products = useSelector(
+    (state) => state.farmerProducts.items
+  );
+
+  const loading = useSelector(
+    (state) => state.farmerProducts.loading
+  );
+
+  const pendingIds = useSelector(
+    (state) => state.farmerProducts.pendingIds
+  );
+
   const [filter, setFilter] = useState("All");
   const [qtyDraft, setQtyDraft] = useState({});
   const [editingId, setEditingId] = useState(null);
   const [editDraft, setEditDraft] = useState({});
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    dispatch(fetchMyProducts());
+  }, [dispatch]);
 
   const inputClass =
     "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 outline-none transition focus:border-[#168343] focus:ring-2 focus:ring-green-100";
@@ -53,21 +59,8 @@ function FarmerMyProducts() {
   const linkButton =
     "text-sm font-medium text-gray-700 underline hover:text-[#168343]";
 
-  const save = (next) => {
-    setProducts(next);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    window.dispatchEvent(new Event("agribridge-update"));
-  };
-
-  const patch = (id, changes) => {
-    save(
-      products.map((product) =>
-        product.id === id ? { ...product, ...changes } : product
-      )
-    );
-  };
-
-  const updateQty = (product) => {
+  // Optimistic quantity update with rollback.
+  const updateQty = async (product) => {
     const raw = qtyDraft[product.id];
 
     if (
@@ -80,27 +73,40 @@ function FarmerMyProducts() {
       return;
     }
 
+    if (pendingIds.includes(product.id)) return;
+
     const qty = Math.floor(Number(raw));
     let status = product.status;
 
-    if (qty === 0 && status === "Active") {
-      status = "Sold out";
+    if (qty === 0 && status === "Active") status = "Sold out";
+    if (qty > 0 && status === "Sold out") status = "Active";
+
+    const previousProduct = { ...product };
+    const changes = { qty, status };
+
+    dispatch(updateOptimisticProduct({
+      id: product.id,
+      changes,
+    }));
+
+    try {
+      await dispatch(
+        updateProduct({
+          id: product.id,
+          changes,
+        })
+      ).unwrap();
+
+      setMessage(`${product.name} quantity updated successfully.`);
+
+      setQtyDraft((draft) => {
+        const { [product.id]: removed, ...rest } = draft;
+        return rest;
+      });
+    } catch (error) {
+      dispatch(restoreProduct(previousProduct));
+      setMessage(error || "Update failed. Previous quantity restored.");
     }
-
-    if (qty > 0 && status === "Sold out") {
-      status = "Active";
-    }
-
-    patch(product.id, { qty, status });
-
-    setQtyDraft((draft) => {
-      const { [product.id]: removed, ...rest } = draft;
-      return rest;
-    });
-
-    setMessage(
-      `${product.name}: quantity updated to ${qty} ${product.unit}.`
-    );
   };
 
   const startEdit = (product) => {
@@ -116,7 +122,8 @@ function FarmerMyProducts() {
     setMessage("");
   };
 
-  const saveEdit = (product) => {
+  // Optimistic product edit with rollback.
+  const saveEdit = async (product) => {
     const price = Number(editDraft.price);
 
     if (
@@ -128,32 +135,62 @@ function FarmerMyProducts() {
       return;
     }
 
-    patch(product.id, {
+    if (pendingIds.includes(product.id)) return;
+
+    const previousProduct = { ...product };
+
+    const changes = {
       name: editDraft.name.trim(),
       price,
       availability: editDraft.availability,
       status: editDraft.status,
+    };
+
+    dispatch(updateOptimisticProduct({
+      id: product.id,
+      changes,
+    }));
+
+    try {
+      await dispatch(
+        updateProduct({
+          id: product.id,
+          changes,
+        })
+      ).unwrap();
+
+      setEditingId(null);
+      setMessage(`${changes.name} updated successfully.`);
+    } catch (error) {
+      dispatch(restoreProduct(previousProduct));
+      setMessage(error || "Update failed. Previous details restored.");
+    }
+  };
+
+  // Optimistic deletion with rollback.
+  const removeProduct = async (product) => {
+    if (pendingIds.includes(product.id)) return;
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${product.name}?`
+    );
+
+    if (!confirmed) return;
+
+    const previousProduct = { ...product };
+
+    dispatch({
+      type: "farmerProducts/removeOptimisticProduct",
+      payload: product.id,
     });
 
-    setEditingId(null);
-    setMessage(`${editDraft.name.trim()} has been updated.`);
-  };
-
-  const archive = (product) => {
-    patch(product.id, { status: "Archived" });
-    setMessage(`${product.name} was archived. Buyers can no longer see it.`);
-  };
-
-  const restore = (product) => {
-    patch(product.id, { status: "Draft" });
-    setMessage(`${product.name} was restored as a draft.`);
-  };
-
-  const resetSample = () => {
-    save(sampleProducts);
-    setEditingId(null);
-    setQtyDraft({});
-    setMessage("Sample products have been restored.");
+    try {
+      await dispatch(deleteProduct(product.id)).unwrap();
+      setMessage(`${product.name} deleted successfully.`);
+    } catch (error) {
+      dispatch(addOptimisticProduct(previousProduct));
+      setMessage(error || "Deletion failed. Product restored.");
+    }
   };
 
   const counts = STATUSES.reduce(
@@ -211,9 +248,7 @@ function FarmerMyProducts() {
           aria-label="Filter products by status"
           className="mb-5 w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-gray-800 outline-none transition focus:border-[#168343] focus:ring-2 focus:ring-green-100"
         >
-          <option value="All">
-            Filter: All ({products.length})
-          </option>
+          <option value="All">Filter: All ({products.length})</option>
 
           {STATUSES.map((status) => (
             <option key={status} value={status}>
@@ -222,7 +257,11 @@ function FarmerMyProducts() {
           ))}
         </select>
 
-        {visible.length === 0 ? (
+        {loading ? (
+          <p className="text-sm text-gray-500">
+            Loading your products...
+          </p>
+        ) : visible.length === 0 ? (
           <p className="text-sm text-gray-500">
             {products.length === 0
               ? "You have no products yet. Add your first product."
@@ -246,6 +285,7 @@ function FarmerMyProducts() {
                 {visible.map((product) => {
                   const editing = editingId === product.id;
                   const typed = qtyDraft[product.id];
+                  const busy = pendingIds.includes(product.id);
 
                   const changed =
                     typed !== undefined &&
@@ -319,17 +359,19 @@ function FarmerMyProducts() {
                                 updateQty(product);
                               }
                             }}
-                            disabled={product.status === "Archived"}
+                            disabled={
+                              product.status === "Archived" || busy
+                            }
                             className={`${inputClass} w-24 disabled:bg-gray-50 disabled:text-gray-500`}
                           />
 
                           <button
                             type="button"
                             onClick={() => updateQty(product)}
-                            disabled={!changed}
-                            className="text-sm font-medium text-gray-700 underline hover:text-[#168343] disabled:cursor-not-allowed disabled:no-underline disabled:opacity-40"
+                            disabled={!changed || busy}
+                            className="text-sm font-medium text-gray-700 underline hover:text-[#168343] disabled:cursor-not-allowed disabled:opacity-40"
                           >
-                            Update
+                            {busy ? "Saving..." : "Update"}
                           </button>
                         </div>
                       </td>
@@ -372,9 +414,7 @@ function FarmerMyProducts() {
                             className={inputClass}
                           >
                             {STATUSES.map((status) => (
-                              <option key={status}>
-                                {status}
-                              </option>
+                              <option key={status}>{status}</option>
                             ))}
                           </select>
                         ) : (
@@ -395,7 +435,8 @@ function FarmerMyProducts() {
                             <button
                               type="button"
                               onClick={() => saveEdit(product)}
-                              className="text-sm font-semibold text-[#168343] underline"
+                              disabled={busy}
+                              className="text-sm font-semibold text-[#168343] underline disabled:opacity-40"
                             >
                               Save
                             </button>
@@ -413,28 +454,20 @@ function FarmerMyProducts() {
                             <button
                               type="button"
                               onClick={() => startEdit(product)}
+                              disabled={busy}
                               className={linkButton}
                             >
                               Edit
                             </button>
 
-                            {product.status === "Archived" ? (
-                              <button
-                                type="button"
-                                onClick={() => restore(product)}
-                                className={linkButton}
-                              >
-                                Restore
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => archive(product)}
-                                className={linkButton}
-                              >
-                                Archive
-                              </button>
-                            )}
+                            <button
+                              type="button"
+                              onClick={() => removeProduct(product)}
+                              disabled={busy}
+                              className="text-sm font-medium text-red-600 underline disabled:opacity-40"
+                            >
+                              Delete
+                            </button>
                           </div>
                         )}
                       </td>
@@ -449,18 +482,9 @@ function FarmerMyProducts() {
         <p className="mt-4 text-xs text-gray-500">
           Update quantity quickly so buyers never over-order.
         </p>
-
-        <button
-          type="button"
-          onClick={resetSample}
-          className="mt-3 text-xs text-gray-500 underline hover:text-[#168343]"
-        >
-          Reset sample products
-        </button>
       </section>
     </div>
   );
 }
 
 export default FarmerMyProducts;
-

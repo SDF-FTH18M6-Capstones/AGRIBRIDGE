@@ -1,12 +1,14 @@
 
 import { useState } from "react";
-import { Link } from "react-router-dom";
-import api from "../../services/api.js";
+import { Link, useNavigate } from "react-router-dom";
+import api from "../../services/api";
 
 const inputClass =
   "w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-green-700 focus:ring-2 focus:ring-green-100";
 
 export default function SignUpPage() {
+  const navigate = useNavigate();
+
   const [form, setForm] = useState({
     fullName: "",
     email: "",
@@ -19,8 +21,7 @@ export default function SignUpPage() {
 
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   function handleChange(event) {
     const { name, value, type, checked } = event.target;
@@ -31,13 +32,15 @@ export default function SignUpPage() {
     }));
 
     setError("");
-    setSuccess("");
   }
 
   function getErrorMessage(error) {
     const data = error.response?.data;
 
-    if (typeof error.message === "string" && error.message !== "Request failed with status code 400") {
+    if (
+      typeof error.message === "string" &&
+      error.message !== "Request failed with status code 400"
+    ) {
       return error.message;
     }
 
@@ -60,9 +63,7 @@ export default function SignUpPage() {
 
   async function handleSubmit(event) {
     event.preventDefault();
-
     setError("");
-    setSuccess("");
 
     if (!form.fullName.trim()) {
       setError("Please enter your full name.");
@@ -99,10 +100,10 @@ export default function SignUpPage() {
       return;
     }
 
-    setLoading(true);
+    setIsSubmitting(true);
 
     try {
-      const response = await api.post("/register", {
+      await api.post("/register", {
         full_name: form.fullName.trim(),
         email: form.email.trim().toLowerCase(),
         phone_number: form.phone.replace(/\s+/g, ""),
@@ -110,23 +111,17 @@ export default function SignUpPage() {
         role: form.role,
       });
 
-      setSuccess(
-        response.data.message || "Registration successful! You can now log in."
-      );
-
-      setForm({
-        fullName: "",
-        email: "",
-        phone: "",
-        password: "",
-        confirmPassword: "",
-        role: "",
-        acceptTerms: false,
+      navigate("/login", {
+        replace: true,
+        state: {
+          message: "Account created successfully. Please log in.",
+          email: form.email.trim().toLowerCase(),
+        },
       });
-    } catch (error) {
-      setError(getErrorMessage(error));
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   }
 
@@ -134,10 +129,7 @@ export default function SignUpPage() {
     <main className="flex min-h-[75vh] items-center justify-center bg-[#f7faf6] px-4 py-12">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <Link
-            to="/"
-            className="text-3xl font-extrabold text-green-800"
-          >
+          <Link to="/" className="text-3xl font-extrabold text-green-800">
             AgriBridge
           </Link>
 
@@ -160,7 +152,6 @@ export default function SignUpPage() {
               <label htmlFor="signup-name" className="mb-2 block text-sm font-semibold">
                 Full name
               </label>
-
               <input
                 id="signup-name"
                 name="fullName"
@@ -178,7 +169,6 @@ export default function SignUpPage() {
               <label htmlFor="signup-email" className="mb-2 block text-sm font-semibold">
                 Email address
               </label>
-
               <input
                 id="signup-email"
                 name="email"
@@ -196,7 +186,6 @@ export default function SignUpPage() {
               <label htmlFor="signup-phone" className="mb-2 block text-sm font-semibold">
                 Phone number (M-Pesa)
               </label>
-
               <input
                 id="signup-phone"
                 name="phone"
@@ -214,7 +203,6 @@ export default function SignUpPage() {
               <label htmlFor="signup-role" className="mb-2 block text-sm font-semibold">
                 I want to register as
               </label>
-
               <select
                 id="signup-role"
                 name="role"
@@ -233,7 +221,6 @@ export default function SignUpPage() {
               <label htmlFor="signup-password" className="mb-2 block text-sm font-semibold">
                 Password
               </label>
-
               <div className="relative">
                 <input
                   id="signup-password"
@@ -247,7 +234,6 @@ export default function SignUpPage() {
                   value={form.password}
                   onChange={handleChange}
                 />
-
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
@@ -262,7 +248,6 @@ export default function SignUpPage() {
               <label htmlFor="signup-confirm" className="mb-2 block text-sm font-semibold">
                 Confirm password
               </label>
-
               <input
                 id="signup-confirm"
                 name="confirmPassword"
@@ -285,10 +270,7 @@ export default function SignUpPage() {
                 onChange={handleChange}
                 className="mt-1 h-4 w-4 accent-green-700"
               />
-
-              <span>
-                I accept the Terms and Privacy Policy
-              </span>
+              <span>I accept the Terms and Privacy Policy</span>
             </label>
 
             {error && (
@@ -300,26 +282,12 @@ export default function SignUpPage() {
               </p>
             )}
 
-            {success && (
-              <div
-                role="status"
-                className="rounded-lg bg-green-50 p-3 text-sm text-green-800"
-              >
-                {success}
-                <p className="mt-2">
-                  <Link to="/login" className="font-bold underline">
-                    Go to login
-                  </Link>
-                </p>
-              </div>
-            )}
-
             <button
               type="submit"
-              disabled={loading}
-              className="w-full rounded-lg bg-green-800 px-4 py-3 font-bold text-white transition hover:bg-green-900 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={isSubmitting}
+              className="w-full rounded-lg bg-green-800 px-5 py-3 font-semibold text-white transition hover:bg-green-900 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {loading ? "Creating account..." : "Create account"}
+              {isSubmitting ? "Creating account..." : "Create account"}
             </button>
           </form>
 

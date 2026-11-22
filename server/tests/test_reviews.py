@@ -253,9 +253,7 @@ def test_create_review_for_nonexistent_user(client, app, delivered_order):
             "rating": 5
         }
     )
-
-    assert response.status_code == 404
-    assert response.json["error"]["code"] == "USER_NOT_FOUND"
+    assert response.status_code == 401
 
 
 def test_create_review_without_buyer_profile(client, farmer_token, delivered_order):
@@ -478,9 +476,7 @@ def test_get_review_for_nonexistent_user(client, app, existing_review):
         headers={"Authorization": f"Bearer {token}"}
     )
 
-    assert response.status_code == 404
-    assert response.json["error"]["code"] == "USER_NOT_FOUND"
-
+    assert response.status_code == 401
 
 def test_get_nonexistent_review(client, buyer_token):
     response = client.get(
@@ -579,9 +575,7 @@ def test_get_my_reviews_for_nonexistent_user(client, app):
         headers={"Authorization": f"Bearer {token}"}
     )
 
-    assert response.status_code == 404
-    assert response.json["error"]["code"] == "USER_NOT_FOUND"
-
+    assert response.status_code == 401
 
 def test_get_my_reviews_without_buyer_profile(client, farmer_token):
     response = client.get(

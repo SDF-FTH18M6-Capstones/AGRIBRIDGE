@@ -19,10 +19,10 @@ load_dotenv()
 
 @pytest.fixture
 def app():
-    database_url = os.getenv("TEST_DATABASE_URL")
+    database_url = os.getenv("PRODUCT_TEST_DATABASE_URL")
 
     if not database_url:
-        pytest.fail("TEST_DATABASE_URL is missing")
+        pytest.fail("PRODUCT_TEST_DATABASE_URL is missing")
 
     if make_url(database_url).database != "product-testing":
         pytest.fail("Tests must run against product-testing")
@@ -43,12 +43,12 @@ def client(app):
 
 @pytest.fixture
 def sample_products(app):
-    
+
 
     with app.app_context():
         marker = uuid4().hex[:8]
 
-      
+
         role = Role(
             role_name=f"farmer_test_{marker}",
             description="Temporary role for product search tests"
@@ -73,7 +73,7 @@ def sample_products(app):
         db.session.add_all([user1, user2])
         db.session.flush()
 
-       
+
         farmer1 = FarmerProfile(
             user_id=user1.user_id,
             farm_name=f"Green Farm {marker}",
@@ -89,7 +89,7 @@ def sample_products(app):
         db.session.add_all([farmer1, farmer2])
         db.session.flush()
 
-     
+
         vegetables = Category(
             category_name=f"Vegetables {marker}"
         )
@@ -101,7 +101,7 @@ def sample_products(app):
         db.session.add_all([vegetables, fruits])
         db.session.flush()
 
-   
+
         tomatoes = Product(
             farmer_id=farmer1.farmer_id,
             category_id=vegetables.category_id,
@@ -153,7 +153,7 @@ def sample_products(app):
         db.session.add_all([tomatoes, potatoes, mangoes, onions])
         db.session.commit()
 
-        
+
         test_data = {
             "tomatoes_id": tomatoes.product_id,
             "potatoes_id": potatoes.product_id,
@@ -175,7 +175,7 @@ def sample_products(app):
 
         yield test_data
 
-   
+
         for product in [tomatoes, potatoes, mangoes, onions]:
             db.session.delete(product)
 

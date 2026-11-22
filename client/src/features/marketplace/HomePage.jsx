@@ -12,7 +12,7 @@ const featuredProducts = [
     county: "Nakuru",
     harvested: "12 Nov 2026",
     image:
-      "https://images.unsplash.com/photo-1741517287380-cf3a9ef75be1?auto=format&fit=crop&w=700&q=80",
+      "https://images.unsplash.com/photo-1546094096-0df4bcaaa337?auto=format&fit=crop&w=700&q=80",
   },
   {
     id: 2,
@@ -23,7 +23,7 @@ const featuredProducts = [
     county: "Makueni",
     harvested: "10 Nov 2026",
     image:
-      "https://images.unsplash.com/photo-1553279768-865429fa0078?w=700",
+      "https://images.unsplash.com/photo-1553279768-865429fa0078?auto=format&fit=crop&w=700&q=80",
   },
   {
     id: 3,
@@ -52,42 +52,51 @@ const featuredProducts = [
 const categories = [
   {
     name: "Vegetables",
-    icon: "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=500&q=80",
+    image:
+      "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=500&q=80",
   },
   {
     name: "Fruits",
-    icon: "https://images.unsplash.com/photo-1619566636858-adf3ef46400b?auto=format&fit=crop&w=500&q=80",
+    image:
+      "https://images.unsplash.com/photo-1619566636858-adf3ef46400b?auto=format&fit=crop&w=500&q=80",
   },
   {
     name: "Cereals and grains",
-    icon: "https://images.unsplash.com/photo-1551754655-cd27e38d2076?auto=format&fit=crop&w=500&q=80",
+    image:
+      "https://images.unsplash.com/photo-1551754655-cd27e38d2076?auto=format&fit=crop&w=500&q=80",
   },
   {
     name: "Tubers",
-    icon: "https://images.unsplash.com/photo-1518977676601-b53f82aba655?auto=format&fit=crop&w=500&q=80",
+    image:
+      "https://images.unsplash.com/photo-1518977676601-b53f82aba655?auto=format&fit=crop&w=500&q=80",
   },
 ];
 
 const benefits = [
   {
     title: "Verified farmers",
-    description: "Discover produce from farmers who have completed verification.",
-    icon: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=300&q=80",
+    description:
+      "Discover produce from farmers who have completed verification.",
+    image:
+      "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=300&q=80",
   },
   {
     title: "Transparent pricing",
     description: "View prices and available quantities before ordering.",
-    icon: "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=300&q=80",
+    image:
+      "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=300&q=80",
   },
   {
     title: "Direct connections",
     description: "Connect farmers and buyers through one marketplace.",
-    icon: "https://images.unsplash.com/photo-1521737711867-e3b97375f902?auto=format&fit=crop&w=300&q=80",
+    image:
+      "https://images.unsplash.com/photo-1521737711867-e3b97375f902?auto=format&fit=crop&w=300&q=80",
   },
   {
     title: "M-Pesa payments",
     description: "A familiar payment option for agricultural transactions.",
-    icon: "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9?auto=format&fit=crop&w=300&q=80",
+    image:
+      "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9?auto=format&fit=crop&w=300&q=80",
   },
 ];
 
@@ -95,24 +104,39 @@ const howItWorks = [
   {
     number: "01",
     title: "Sign up",
-    description: "Create an account and choose to participate as a farmer or buyer.",
+    description:
+      "Create an account and choose to participate as a farmer or buyer.",
   },
   {
     number: "02",
     title: "List or order",
-    description: "Farmers list produce. Buyers browse products or post buying requests.",
+    description:
+      "Farmers list produce. Buyers browse products or post buying requests.",
   },
   {
     number: "03",
     title: "Accept and pay",
-    description: "Farmers accept orders, then buyers can pay through M-Pesa.",
+    description:
+      "Farmers accept orders, then buyers can pay through M-Pesa.",
   },
 ];
 
 const farmerProfiles = [
-  { name: "Farmer profile", location: "Verified farmer profiles coming soon" },
-  { name: "Farmer profile", location: "Verified farmer profiles coming soon" },
-  { name: "Farmer profile", location: "Verified farmer profiles coming soon" },
+  {
+    id: 1,
+    name: "Verified farmer",
+    location: "Nakuru County",
+  },
+  {
+    id: 2,
+    name: "Verified farmer",
+    location: "Makueni County",
+  },
+  {
+    id: 3,
+    name: "Verified farmer",
+    location: "Nyandarua County",
+  },
 ];
 
 export default function HomePage() {
@@ -132,8 +156,68 @@ export default function HomePage() {
   };
 
   return (
-    <main className="bg-[#f7faf6] text-gray-900">
-      {/* Hero */}
+    <main className="min-h-screen bg-[#f7faf6] text-gray-900">
+
+      {/* NAVIGATION BAR */}
+      <header className="w-full bg-green-800 shadow-md">
+        <nav className="flex w-full items-center justify-between px-6 py-5 lg:px-12">
+
+          {/* AGRIBRIDGE - FAR LEFT */}
+          <Link
+            to="/"
+            className="shrink-0 text-3xl font-extrabold tracking-tight text-white"
+          >
+            AgriBridge
+          </Link>
+
+          {/* NAVIGATION LINKS - FAR RIGHT */}
+          <div className="flex items-center gap-8">
+            <Link
+              to="/"
+              className="whitespace-nowrap font-semibold text-white transition hover:text-green-200"
+            >
+              Home
+            </Link>
+
+            <Link
+              to="/marketplace"
+              className="whitespace-nowrap font-semibold text-white transition hover:text-green-200"
+            >
+              Marketplace
+            </Link>
+
+            <Link
+              to="/about"
+              className="whitespace-nowrap font-semibold text-white transition hover:text-green-200"
+            >
+              About Us
+            </Link>
+
+            <Link
+              to="/my-products"
+              className="whitespace-nowrap font-semibold text-white transition hover:text-green-200"
+            >
+              My Products
+            </Link>
+
+            <Link
+              to="/login"
+              className="whitespace-nowrap font-semibold text-white transition hover:text-green-200"
+            >
+              Login
+            </Link>
+
+            <Link
+              to="/register"
+              className="whitespace-nowrap rounded-xl bg-white px-7 py-3 font-bold text-green-800 transition hover:bg-green-100"
+            >
+              Register
+            </Link>
+          </div>
+        </nav>
+      </header>
+
+      {/* HERO SECTION */}
       <section className="mx-auto grid max-w-7xl items-center gap-10 px-4 py-14 sm:px-6 lg:grid-cols-2 lg:px-8 lg:py-20">
         <div>
           <p className="mb-4 text-sm font-bold uppercase tracking-[0.2em] text-green-700">
@@ -148,7 +232,9 @@ export default function HomePage() {
           </h1>
 
           <p className="mt-6 max-w-lg text-lg leading-8 text-gray-600">
-            Connecting farmers directly with genuine buyers.
+            Connecting farmers directly with genuine buyers. Discover fresh
+            produce, compare prices and grow your agricultural business
+            through AgriBridge.
           </p>
 
           <div className="mt-8 flex flex-wrap gap-3">
@@ -169,20 +255,19 @@ export default function HomePage() {
 
           <form
             onSubmit={handleSearch}
-            role="search"
             className="mt-8 flex max-w-xl flex-col gap-2 rounded-xl border border-gray-200 bg-white p-2 shadow-sm sm:flex-row"
           >
             <input
               type="search"
-              aria-label="Search produce, county or price range"
               placeholder="Search produce, county or price range"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              className="min-w-0 flex-1 rounded-lg px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-green-200"
+              className="min-w-0 flex-1 rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-green-200"
             />
+
             <button
               type="submit"
-              className="rounded-lg bg-green-800 px-6 py-3 font-semibold text-white hover:bg-green-900"
+              className="rounded-lg bg-green-800 px-6 py-3 font-semibold text-white transition hover:bg-green-900"
             >
               Search
             </button>
@@ -191,11 +276,12 @@ export default function HomePage() {
 
         <div className="relative overflow-hidden rounded-3xl bg-green-100 shadow-lg">
           <img
-            src="https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=1200"
+            src="https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&w=1200&q=80"
             alt="Green agricultural fields"
             className="h-80 w-full object-cover sm:h-[480px]"
           />
-          <div className="absolute inset-x-4 bottom-4 rounded-xl bg-white/95 p-4 shadow-lg backdrop-blur-sm sm:inset-x-6 sm:bottom-6">
+
+          <div className="absolute inset-x-4 bottom-4 rounded-xl bg-white/95 p-4 shadow-lg sm:inset-x-6 sm:bottom-6">
             <p className="text-sm font-semibold text-green-800">
               Grow together with AgriBridge
             </p>
@@ -206,17 +292,18 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Categories */}
+      {/* CATEGORIES */}
       <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="mb-7 flex items-center justify-between gap-4">
           <h2 className="text-2xl font-bold text-green-950 sm:text-3xl">
-            Categories
+            Shop by Category
           </h2>
+
           <Link
             to="/marketplace"
             className="text-sm font-semibold text-green-800 hover:underline"
           >
-            View all produce →
+            View all
           </Link>
         </div>
 
@@ -225,23 +312,26 @@ export default function HomePage() {
             <Link
               key={category.name}
               to={`/marketplace?category=${encodeURIComponent(category.name)}`}
-              className="group rounded-2xl border border-green-100 bg-white p-6 text-center shadow-sm transition hover:-translate-y-1 hover:border-green-300 hover:shadow-md"
+              className="group overflow-hidden rounded-2xl border border-green-100 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md"
             >
               <img
-                src={category.icon}
+                src={category.image}
                 alt={category.name}
-                className="mx-auto h-20 w-full rounded-xl object-cover"
+                className="h-36 w-full object-cover sm:h-48"
                 loading="lazy"
               />
-              <h3 className="mt-4 font-bold text-green-950 group-hover:text-green-700">
-                {category.name}
-              </h3>
+
+              <div className="p-4 text-center">
+                <h3 className="font-bold text-green-950 group-hover:text-green-700">
+                  {category.name}
+                </h3>
+              </div>
             </Link>
           ))}
         </div>
       </section>
 
-      {/* Featured produce */}
+      {/* FEATURED PRODUCTS */}
       <section className="bg-white py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
@@ -249,15 +339,21 @@ export default function HomePage() {
               <p className="mb-2 text-sm font-bold uppercase tracking-widest text-green-700">
                 Fresh from the farm
               </p>
+
               <h2 className="text-2xl font-bold text-green-950 sm:text-3xl">
-                Featured produce from verified farmers
+                Featured Produce
               </h2>
+
+              <p className="mt-2 text-gray-600">
+                Explore fresh agricultural products available on AgriBridge.
+              </p>
             </div>
+
             <Link
               to="/marketplace"
               className="font-semibold text-green-800 hover:underline"
             >
-              Explore marketplace →
+              Explore Marketplace
             </Link>
           </div>
 
@@ -267,37 +363,38 @@ export default function HomePage() {
                 key={product.id}
                 className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:shadow-md"
               >
-                <div className="flex h-44 items-center justify-center bg-green-50">
-                  {product.image ? (
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-sm text-green-700">
-                      Produce image
-                    </span>
-                  )}
-                </div>
+                <img
+                  src={product.image}
+                  alt={product.name}
+                  className="h-44 w-full object-cover"
+                  loading="lazy"
+                />
 
                 <div className="p-5">
                   <h3 className="text-lg font-bold text-gray-900">
                     {product.name}
                   </h3>
+
                   <p className="mt-2 font-bold text-green-800">
                     KSh {product.price.toLocaleString("en-KE")} / {product.unit}
                   </p>
+
                   <p className="mt-3 text-sm text-gray-600">
-                    {product.quantity} {product.unit} available · {product.county}
+                    {product.quantity} {product.unit} available
                   </p>
+
+                  <p className="mt-1 text-sm text-gray-600">
+                    {product.county}
+                  </p>
+
                   <p className="mt-1 text-xs text-gray-500">
                     {product.harvested === "Pending harvest"
                       ? product.harvested
                       : `Harvested ${product.harvested}`}
                   </p>
+
                   <span className="mt-4 inline-block rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-800">
-                    ✓ Verified farmer
+                    Verified farmer
                   </span>
                 </div>
               </article>
@@ -306,15 +403,16 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* How it works */}
+      {/* HOW IT WORKS */}
       <section
         id="how-it-works"
         className="mx-auto max-w-7xl scroll-mt-24 px-4 py-16 sm:px-6 lg:px-8"
       >
         <div className="mb-9">
           <h2 className="text-2xl font-bold text-green-950 sm:text-3xl">
-            How it works
+            How AgriBridge Works
           </h2>
+
           <p className="mt-3 text-gray-600">
             Three simple steps to connect farmers and buyers.
           </p>
@@ -329,9 +427,11 @@ export default function HomePage() {
               <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-green-800 text-lg font-bold text-white">
                 {step.number}
               </div>
+
               <h3 className="text-xl font-bold text-green-950">
                 {step.title}
               </h3>
+
               <p className="mt-3 leading-7 text-gray-600">
                 {step.description}
               </p>
@@ -340,30 +440,36 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Benefits */}
+      {/* BENEFITS */}
       <section className="bg-[#eaf4e9] py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <h2 className="mb-9 text-2xl font-bold text-green-950 sm:text-3xl">
-            Why AgriBridge
-          </h2>
+          <div className="mb-9">
+            <h2 className="text-2xl font-bold text-green-950 sm:text-3xl">
+              Why Choose AgriBridge?
+            </h2>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <p className="mt-3 text-gray-600">
+              A marketplace designed to make agricultural trade easier.
+            </p>
+          </div>
+
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {benefits.map((benefit) => (
               <div
                 key={benefit.title}
                 className="rounded-2xl bg-white p-6 shadow-sm"
               >
-                <div className="h-16 w-16 overflow-hidden rounded-xl bg-green-100">
-                  <img
-                    src={benefit.icon}
-                    alt={benefit.title}
-                    className="h-full w-full object-cover"
-                    loading="lazy"
-                  />
-                </div>
+                <img
+                  src={benefit.image}
+                  alt={benefit.title}
+                  className="h-20 w-20 rounded-xl object-cover"
+                  loading="lazy"
+                />
+
                 <h3 className="mt-5 font-bold text-green-950">
                   {benefit.title}
                 </h3>
+
                 <p className="mt-2 text-sm leading-6 text-gray-600">
                   {benefit.description}
                 </p>
@@ -373,44 +479,54 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Bulk buying */}
+      {/* BULK BUYING */}
       <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
         <div className="flex flex-col items-start justify-between gap-6 rounded-2xl border border-green-200 bg-white p-7 shadow-sm md:flex-row md:items-center md:p-10">
           <div>
             <h2 className="text-2xl font-bold text-green-950">
-              Need produce in bulk?
+              Need Produce in Bulk?
             </h2>
+
             <p className="mt-2 text-gray-600">
-              Post a buying request and let verified farmers respond.
+              Post a buying request and let farmers respond to your needs.
             </p>
           </div>
+
           <Link
             to="/login"
             className="shrink-0 rounded-lg bg-green-800 px-6 py-3 font-semibold text-white hover:bg-green-900"
           >
-            Post a request →
+            Post a Request
           </Link>
         </div>
       </section>
 
-      {/* Verified farmer profiles */}
+      {/* FARMER PROFILES */}
       <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <h2 className="mb-7 text-2xl font-bold text-green-950 sm:text-3xl">
-          Verified farmers
-        </h2>
+        <div className="mb-7">
+          <h2 className="text-2xl font-bold text-green-950 sm:text-3xl">
+            Meet Our Farmers
+          </h2>
+
+          <p className="mt-2 text-gray-600">
+            Discover farmers growing fresh produce across Kenya.
+          </p>
+        </div>
 
         <div className="grid gap-5 md:grid-cols-3">
-          {farmerProfiles.map((farmer, index) => (
+          {farmerProfiles.map((farmer) => (
             <div
-              key={index}
+              key={farmer.id}
               className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
             >
-              <div className="flex h-32 items-center justify-center rounded-xl bg-green-50 text-green-700">
-                Farmer profile
+              <div className="flex h-32 items-center justify-center rounded-xl bg-green-50 text-lg font-semibold text-green-800">
+                {farmer.name}
               </div>
-              <h3 className="mt-4 font-semibold text-green-950">
+
+              <h3 className="mt-4 font-bold text-green-950">
                 {farmer.name}
               </h3>
+
               <p className="mt-1 text-sm text-gray-500">
                 {farmer.location}
               </p>
@@ -419,44 +535,45 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Testimonials */}
+      {/* TESTIMONIALS */}
       <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
         <h2 className="mb-7 text-2xl font-bold text-green-950 sm:text-3xl">
-          Testimonials
+          What Our Users Say
         </h2>
 
         <div className="grid gap-5 md:grid-cols-2">
           <div className="rounded-2xl border border-gray-200 bg-white p-8">
-            <p className="text-sm font-semibold text-green-800">
+            <p className="font-semibold text-green-800">
               Farmer testimonial
             </p>
+
             <p className="mt-3 text-gray-500">
-              Farmer experiences and feedback will appear here
-              once available.
+              Farmer experiences and feedback will appear here once available.
             </p>
           </div>
 
           <div className="rounded-2xl border border-gray-200 bg-white p-8">
-            <p className="text-sm font-semibold text-green-800">
+            <p className="font-semibold text-green-800">
               Buyer testimonial
             </p>
+
             <p className="mt-3 text-gray-500">
-              Buyer experiences and feedback will appear here
-              once available.
+              Buyer experiences and feedback will appear here once available.
             </p>
           </div>
         </div>
       </section>
 
-      {/* Final CTA */}
+      {/* FINAL CALL TO ACTION */}
       <section className="bg-green-950 px-4 py-16 text-center text-white sm:px-6">
         <div className="mx-auto max-w-3xl">
           <h2 className="text-3xl font-bold sm:text-4xl">
-            Join AgriBridge today
+            Join AgriBridge Today
           </h2>
+
           <p className="mt-4 text-green-100">
-            Whether you grow produce or buy it, AgriBridge
-            brings agricultural opportunities closer.
+            Whether you grow produce or buy it, AgriBridge brings agricultural
+            opportunities closer.
           </p>
 
           <div className="mt-8 flex flex-wrap justify-center gap-4">
@@ -464,17 +581,33 @@ export default function HomePage() {
               to="/register"
               className="rounded-lg bg-white px-7 py-3 font-semibold text-green-950 hover:bg-green-50"
             >
-              I am a farmer
+              Join as a Farmer
             </Link>
+
             <Link
               to="/register"
               className="rounded-lg border border-white px-7 py-3 font-semibold text-white hover:bg-green-900"
             >
-              I am a buyer
+              Join as a Buyer
             </Link>
           </div>
         </div>
       </section>
+
+      {/* FOOTER */}
+      <footer className="bg-gray-950 px-6 py-8 text-white">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 sm:flex-row">
+          <p className="text-xl font-bold">AgriBridge</p>
+
+          <p className="text-center text-sm text-gray-400">
+            Connecting farmers and buyers across Kenya.
+          </p>
+
+          <p className="text-sm text-gray-400">
+            © 2026 AgriBridge. All rights reserved.
+          </p>
+        </div>
+      </footer>
     </main>
   );
 }

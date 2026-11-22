@@ -1,23 +1,28 @@
 
 import React, { useState } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useNavigate } from "react-router-dom";
 import BuyerSidebar from "./BuyerSidebar.jsx";
 import BuyerHeader from "./BuyerHeader.jsx";
+import useAuth from "../../../hooks/useAuth.js";
 
-const BuyerLayout = ({ onSwitchToFarmer, onLogout }) => {
+const BuyerLayout = () => {
   const [activeTab, setActiveTab] = useState("Overview");
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login", { replace: true });
+  };
 
   return (
     <div className="flex min-h-screen bg-[#f8f9fa]">
-      {/* Buyer Sidebar */}
       <BuyerSidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
       />
 
-      {/* Main Content */}
       <div className="flex flex-1 flex-col min-w-0">
-        {/* Buyer Header */}
         <BuyerHeader
           title={
             activeTab === "Overview"
@@ -25,17 +30,15 @@ const BuyerLayout = ({ onSwitchToFarmer, onLogout }) => {
               : activeTab
           }
           switchLabel="Switch to Farmer"
-          onSwitchRole={onSwitchToFarmer}
           onNotificationsClick={() =>
             setActiveTab("Notifications")
           }
           onProfileClick={() =>
             setActiveTab("Settings")
           }
-          onLogoutClick={onLogout}
+          onLogoutClick={handleLogout}
         />
 
-        {/* Page Content */}
         <main className="flex-1 px-8 py-6">
           <Outlet />
         </main>

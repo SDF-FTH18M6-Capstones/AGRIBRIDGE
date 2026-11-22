@@ -1,19 +1,26 @@
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useDispatch } from "react-redux";
+
+import api from "../../../services/api";
+import {
+  createProduct,
+  updateOptimisticProduct,
+} from "../products/productSlice";
 
 const initialForm = {
   name: "",
-  category: "Vegetables",
+  category: "",
   description: "",
   price: "",
   quantity: "",
   unit: "kg",
   harvestStatus: "Ready for harvest",
   harvestDate: "",
-  county: "Nakuru",
+  county: "",
   location: "",
-  farmName: "Green Valley Farm",
+  farmName: "",
 };
 
 const steps = [
@@ -25,18 +32,116 @@ const steps = [
 
 function AddProduct() {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
   const [currentStep, setCurrentStep] = useState(1);
   const [form, setForm] = useState(initialForm);
+  const [categories, setCategories] = useState([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [image, setImage] = useState("");
   const [imageName, setImageName] = useState("");
+  const [imageFile, setImageFile] = useState(null);
   const [error, setError] = useState("");
   const [publishing, setPublishing] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [profileError, setProfileError] = useState("");
+
+  // Load real categories from the database.
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadCategories = async () => {
+      try {
+        const response = await api.get("/categories/");
+        const loadedCategories = response.data?.data || [];
+
+        if (isMounted) {
+          setCategories(loadedCategories);
+
+          if (loadedCategories.length > 0) {
+            setForm((previous) => ({
+              ...previous,
+              category: String(loadedCategories[0].category_id),
+            }));
+          }
+        }
+      } catch (err) {
+        console.error("Could not load categories:", err);
+
+        if (isMounted) {
+          setError(
+            err.response?.data?.error?.message ||
+              "Could not load product categories. Please try again."
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setCategoriesLoading(false);
+        }
+      }
+    };
+
+    loadCategories();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Load the farmer's saved profile.
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadFarmerProfile = async () => {
+      try {
+        const response = await api.get("/profiles/me");
+        const farmerProfile = response.data?.data?.farmer_profile;
+
+        if (isMounted && farmerProfile) {
+          setForm((previous) => ({
+            ...previous,
+            farmName: farmerProfile.farm_name || "",
+            location: farmerProfile.location || "",
+          }));
+        }
+      } catch (err) {
+        console.error("Could not load farmer profile:", err);
+
+        if (isMounted) {
+          setProfileError(
+            "Your saved farm details could not be loaded. You can still enter your details below."
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setProfileLoading(false);
+        }
+      }
+    };
+
+    loadFarmerProfile();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (image) {
+        URL.revokeObjectURL(image);
+      }
+    };
+  }, [image]);
 
   const inputClass =
     "w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-gray-800 outline-none transition focus:border-green-700 focus:ring-2 focus:ring-green-100";
 
   const labelClass = "mb-2 block text-sm font-semibold text-gray-700";
+
+  const selectedCategory = categories.find(
+    (category) => String(category.category_id) === form.category
+  );
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -59,11 +164,12 @@ function AddProduct() {
       return;
     }
 
-    if (file.size > 2 * 1024 * 1024) {
-      setError("Image size must not exceed 2MB.");
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Image size must not exceed 5MB.");
       return;
     }
 
+    setImageFile(file);
     setImage(URL.createObjectURL(file));
     setImageName(file.name);
     setError("");
@@ -73,6 +179,16 @@ function AddProduct() {
     if (currentStep === 1) {
       if (!form.name.trim() || !form.description.trim()) {
         setError("Please enter the product name and description.");
+        return false;
+      }
+
+      if (categoriesLoading) {
+        setError("Please wait while product categories load.");
+        return false;
+      }
+
+      if (!form.category || !selectedCategory) {
+        setError("Please select a valid product category.");
         return false;
       }
     }
@@ -90,12 +206,8 @@ function AddProduct() {
     }
 
     if (currentStep === 3) {
-      if (
-        !form.county.trim() ||
-        !form.location.trim() ||
-        !form.farmName.trim()
-      ) {
-        setError("Please complete your farm location details.");
+      if (!form.location.trim() || !form.farmName.trim()) {
+        setError("Please complete your farm name and location.");
         return false;
       }
     }
@@ -105,6 +217,15 @@ function AddProduct() {
   };
 
   const nextStep = () => {
+    if (currentStep === 3 && (profileLoading || profileError)) {
+      setError(
+        profileLoading
+          ? "Please wait while your farm details load."
+          : "Please update your farm details in My Farm before continuing."
+      );
+      return;
+    }
+
     if (validateStep()) {
       setCurrentStep((step) => Math.min(step + 1, 4));
     }
@@ -115,49 +236,123 @@ function AddProduct() {
     setCurrentStep((step) => Math.max(step - 1, 1));
   };
 
-  const publishProduct = () => {
+  const publishProduct = async () => {
     if (publishing) return;
 
+    if (!form.category || !selectedCategory) {
+      setError("Please select a valid product category.");
+      setCurrentStep(1);
+      return;
+    }
+
+    setPublishing(true);
+    setError("");
+
     try {
-      setPublishing(true);
+      const categoryId = Number(form.category);
 
-      const storedProducts = JSON.parse(
-        localStorage.getItem("agribridge-farmer-products") || "[]"
-      );
-
-      const existingProducts = Array.isArray(storedProducts)
-        ? storedProducts
-        : [];
-
-      const newProduct = {
-        id: Date.now(),
-        name: form.name.trim(),
-        category: form.category,
-        description: form.description.trim(),
-        price: Number(form.price),
-        quantity: Number(form.quantity),
-        unit: form.unit,
-        harvestStatus: form.harvestStatus,
-        harvestDate: form.harvestDate,
-        county: form.county,
+      // Save farm details first.
+      await api.put("/profiles/me", {
+        profile_type: "farmer",
+        farm_name: form.farmName.trim(),
         location: form.location.trim(),
-        farmName: form.farmName.trim(),
-        imageName,
-        status: "Active",
-        createdAt: new Date().toISOString(),
+      });
+
+      const payload = {
+        category_id: categoryId,
+        product_name: form.name.trim(),
+        description: form.description.trim(),
+        price: String(Number(form.price)),
+        quantity_available: String(Number(form.quantity)),
+        unit: form.unit,
+        quality: form.harvestStatus,
+        availability_date: form.harvestDate || null,
+        status: "available",
       };
 
-      localStorage.setItem(
-        "agribridge-farmer-products",
-        JSON.stringify([...existingProducts, newProduct])
-      );
+      const tempId = `temp-${Date.now()}`;
+
+      const optimisticProduct = {
+        id: tempId,
+        category_id: categoryId,
+        name: form.name.trim(),
+        category: selectedCategory.category_name,
+        description: form.description.trim(),
+        price: Number(form.price),
+        qty: Number(form.quantity),
+        unit: form.unit,
+        availability:
+          form.harvestStatus === "Ready for harvest"
+            ? "Ready"
+            : form.harvestStatus === "Recently harvested"
+              ? "On farm"
+              : "Upcoming",
+        quality: form.harvestStatus,
+        harvestDate: form.harvestDate || "",
+        status: "Active",
+        imageUrl: image || "",
+      };
+
+      const savedProduct = await dispatch(
+        createProduct({
+          payload,
+          tempId,
+          optimisticProduct,
+        })
+      ).unwrap();
+
+      let imageUploadWarning = "";
+
+      if (imageFile) {
+        try {
+          const imageFormData = new FormData();
+          imageFormData.append("image", imageFile);
+
+          const imageResponse = await api.post(
+            `/products/${savedProduct.product.id}/images`,
+            imageFormData
+          );
+
+          const uploadedImageUrl =
+            imageResponse.data?.data?.image_url || "";
+
+          if (!uploadedImageUrl) {
+            throw new Error("The server did not return an image URL.");
+          }
+
+          dispatch(
+            updateOptimisticProduct({
+              id: savedProduct.product.id,
+              changes: {
+                imageUrl: uploadedImageUrl,
+              },
+            })
+          );
+        } catch (imageError) {
+          console.error("Product image upload failed:", imageError);
+
+          imageUploadWarning =
+            "Product created successfully, but its image could not be uploaded.";
+        }
+      }
 
       navigate("/farmer/products", {
-        state: { message: "Product added successfully!" },
+        state: {
+          message:
+            imageUploadWarning || "Product added successfully!",
+        },
       });
     } catch (err) {
       console.error("Unable to publish product:", err);
-      setError("Unable to save your product. Please try again.");
+
+      setError(
+        typeof err === "string"
+          ? err
+          : err?.response?.data?.error?.message ||
+              err?.message ||
+              "Unable to publish your product. Please try again."
+      );
+
       setPublishing(false);
     }
   };
@@ -187,6 +382,7 @@ function AddProduct() {
           <h2 className="font-bold text-gray-900">
             Product listing process
           </h2>
+
           <span className="text-sm font-semibold text-green-800">
             Step {currentStep} of 4
           </span>
@@ -202,6 +398,7 @@ function AddProduct() {
                     : "bg-gray-200"
                 }`}
               />
+
               <span className="hidden text-xs text-gray-600 sm:block">
                 {step}
               </span>
@@ -211,6 +408,24 @@ function AddProduct() {
       </section>
 
       <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:p-8">
+        {profileLoading && (
+          <div className="mb-5 rounded-lg bg-blue-50 p-3 text-sm text-blue-800">
+            Loading your saved farm details...
+          </div>
+        )}
+
+        {profileError && (
+          <div className="mb-5 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
+            {profileError}
+          </div>
+        )}
+
+        {categoriesLoading && (
+          <div className="mb-5 rounded-lg bg-blue-50 p-3 text-sm text-blue-800">
+            Loading product categories...
+          </div>
+        )}
+
         {error && (
           <div className="mb-5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
             {error}
@@ -240,20 +455,35 @@ function AddProduct() {
             </div>
 
             <div>
-              <label className={labelClass}>Category</label>
+              <label className={labelClass}>Category *</label>
               <select
                 className={inputClass}
                 name="category"
                 value={form.category}
                 onChange={handleChange}
+                disabled={categoriesLoading || categories.length === 0}
               >
-                <option value="Vegetables">Vegetables</option>
-                <option value="Fruits">Fruits</option>
-                <option value="Cereals and grains">Cereals and grains</option>
-                <option value="Tubers">Tubers</option>
-                <option value="Legumes">Legumes</option>
-                <option value="Other">Other</option>
+                <option value="">
+                  {categoriesLoading
+                    ? "Loading categories..."
+                    : "Select a category"}
+                </option>
+
+                {categories.map((category) => (
+                  <option
+                    key={category.category_id}
+                    value={String(category.category_id)}
+                  >
+                    {category.category_name}
+                  </option>
+                ))}
               </select>
+
+              {!categoriesLoading && categories.length === 0 && (
+                <p className="mt-1 text-xs text-red-600">
+                  No categories were returned. Please try refreshing the page.
+                </p>
+              )}
             </div>
 
             <div>
@@ -276,8 +506,9 @@ function AddProduct() {
                 accept="image/*"
                 onChange={handleImage}
               />
+
               <p className="mt-1 text-xs text-gray-500">
-                Image must not exceed 2MB.
+                Image must not exceed 5MB.
               </p>
 
               {image && (
@@ -287,6 +518,7 @@ function AddProduct() {
                     alt="Product preview"
                     className="h-40 w-40 rounded-lg border object-cover"
                   />
+
                   <p className="mt-2 text-sm text-gray-600">
                     {imageName}
                   </p>
@@ -342,11 +574,13 @@ function AddProduct() {
                 onChange={handleChange}
               >
                 <option value="kg">Kilograms (kg)</option>
-                <option value="tonnes">Tonnes</option>
-                <option value="bags">Bags</option>
-                <option value="crates">Crates</option>
-                <option value="pieces">Pieces</option>
-                <option value="litres">Litres</option>
+                <option value="gram">Grams</option>
+                <option value="tonne">Tonnes</option>
+                <option value="bag">Bags</option>
+                <option value="crate">Crates</option>
+                <option value="piece">Pieces</option>
+                <option value="litre">Litres</option>
+                <option value="bunch">Bunches</option>
               </select>
             </div>
 
@@ -354,6 +588,7 @@ function AddProduct() {
               <p className="text-sm text-green-800">
                 Estimated listing value
               </p>
+
               <p className="mt-1 text-xl font-bold text-green-900">
                 KES{" "}
                 {(
@@ -371,6 +606,7 @@ function AddProduct() {
               <h2 className="text-lg font-bold text-gray-900">
                 Harvest and farm details
               </h2>
+
               <p className="mt-1 text-sm text-gray-500">
                 Give buyers information about availability and farm location.
               </p>
@@ -401,34 +637,9 @@ function AddProduct() {
               />
             </div>
 
-            <div>
-              <label className={labelClass}>County *</label>
-              <select
-                className={inputClass}
-                name="county"
-                value={form.county}
-                onChange={handleChange}
-              >
-                {[
-                  "Nakuru",
-                  "Nairobi",
-                  "Kiambu",
-                  "Uasin Gishu",
-                  "Trans Nzoia",
-                  "Meru",
-                  "Nyeri",
-                  "Kisumu",
-                  "Mombasa",
-                  "Machakos",
-                  "Kakamega",
-                  "Other",
-                ].map((county) => (
-                  <option key={county} value={county}>
-                    {county}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <p className="text-xs text-gray-500">
+              These details will be saved to your farm profile.
+            </p>
 
             <div>
               <label className={labelClass}>Farm location *</label>
@@ -437,7 +648,7 @@ function AddProduct() {
                 name="location"
                 value={form.location}
                 onChange={handleChange}
-                placeholder="Enter your town or area"
+                placeholder="Enter your farm location or area"
               />
             </div>
 
@@ -460,6 +671,7 @@ function AddProduct() {
               <h2 className="text-lg font-bold text-gray-900">
                 Review your listing
               </h2>
+
               <p className="mt-1 text-sm text-gray-500">
                 Check your product details before publishing.
               </p>
@@ -476,13 +688,16 @@ function AddProduct() {
             <div className="divide-y divide-gray-100 rounded-lg border border-gray-200">
               {[
                 ["Product", form.name],
-                ["Category", form.category],
+                ["Category", selectedCategory?.category_name || "Not selected"],
                 ["Description", form.description],
-                ["Price", `KES ${Number(form.price).toLocaleString("en-KE")} / ${form.unit}`],
+                [
+                  "Price",
+                  `KES ${Number(form.price).toLocaleString("en-KE")} / ${form.unit}`,
+                ],
                 ["Quantity", `${form.quantity} ${form.unit}`],
                 ["Harvest status", form.harvestStatus],
                 ["Harvest date", form.harvestDate || "Not specified"],
-                ["County", form.county],
+                ["County", form.county || "Not provided"],
                 ["Location", form.location],
                 ["Farm", form.farmName],
               ].map(([label, value]) => (
@@ -493,6 +708,7 @@ function AddProduct() {
                   <span className="text-sm font-semibold text-gray-600">
                     {label}
                   </span>
+
                   <span className="text-sm text-gray-900 sm:col-span-2">
                     {value}
                   </span>
@@ -533,7 +749,7 @@ function AddProduct() {
             <button
               type="button"
               onClick={publishProduct}
-              disabled={publishing}
+              disabled={publishing || categoriesLoading || categories.length === 0}
               className="rounded-lg bg-green-800 px-6 py-3 text-sm font-semibold text-white hover:bg-green-900 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {publishing ? "Publishing..." : "Publish product"}
@@ -546,4 +762,3 @@ function AddProduct() {
 }
 
 export default AddProduct;
-
