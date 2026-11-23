@@ -14,7 +14,8 @@ from flask import (
 from werkzeug.utils import secure_filename
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from marshmallow import ValidationError
-from sqlalchemy import or_
+from sqlalchemy import or_, select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import SQLAlchemyError
 from io import BytesIO
 from PIL import Image, UnidentifiedImageError
@@ -26,6 +27,7 @@ from app.models import (
     Category,
     FarmerProfile,
     PRODUCT_STATUSES,
+    OrderItem,
 )
 
 from app.schemas.product_schema import (
@@ -41,7 +43,7 @@ single_product_image_schema = ProductImageSchema()
 
 @products_bp.get("/search")
 def search_products():
-    query = Product.query
+    query = Product.query.filter(Product.farmer.has(verification_status="approved")).options(selectinload(Product.images), selectinload(Product.category), selectinload(Product.farmer))
 
     search = request.args.get("search", "").strip()
     category_id = request.args.get("category_id")
@@ -148,7 +150,23 @@ def search_products():
             "message": "page must be positive and per_page must be between 1 and 100"
         }), 400
 
-    pagination = query.order_by(Product.product_id.asc()).paginate(
+    if request.args.get("verified") == "true":
+        query = query.filter(Product.farmer.has(verification_status="approved"))
+    minimum_quantity = request.args.get("minimum_quantity")
+    if minimum_quantity:
+        try:
+            value = Decimal(minimum_quantity)
+            if not value.is_finite() or value < 0:
+                raise ValueError
+            query = query.filter(Product.quantity_available >= value)
+        except (InvalidOperation, ValueError):
+            return jsonify({"message": "minimum_quantity must be a non-negative number"}), 400
+    ordering = {"price-low": Product.price.asc(), "price-high": Product.price.desc(),
+                "newest": Product.created_at.desc(), "default": Product.product_id.asc()}
+    sort = request.args.get("sort", "default")
+    if sort not in ordering:
+        return jsonify({"message": "Invalid product sort"}), 400
+    pagination = query.order_by(ordering[sort], Product.product_id).paginate(
         page=page,
         per_page=per_page,
         error_out=False
@@ -173,7 +191,7 @@ def search_products():
 
 @products_bp.get("")
 def get_products():
-    products = Product.query.order_by(Product.product_id).all()
+    products = Product.query.filter(Product.farmer.has(verification_status="approved")).order_by(Product.product_id).all()
 
     return jsonify({
         "data": product_list_schema.dump(products)
@@ -220,7 +238,7 @@ def get_product(product_id):
         }), 404
 
     return jsonify({
-        "data": product_schema.dump(product)
+        "data": product_search_schema.dump([product])[0]
     }), 200
 
 
@@ -240,6 +258,9 @@ def create_product():
                 "message": "Farmer profile not found"
             }
         }), 403
+
+    if farmer_profile.verification_status != "approved":
+        return jsonify({"error": {"code": "FARMER_NOT_VERIFIED", "message": "Complete farmer verification before managing listings"}}), 403
 
     data = request.get_json(silent=True)
 
@@ -329,6 +350,9 @@ def update_product(product_id):
             }
         }), 403
 
+    if farmer_profile.verification_status != "approved":
+        return jsonify({"error": {"code": "FARMER_NOT_VERIFIED", "message": "Complete farmer verification before managing listings"}}), 403
+
     data = request.get_json(silent=True)
 
     if not isinstance(data, dict):
@@ -367,7 +391,7 @@ def update_product(product_id):
 
     return jsonify({
         "message": "Product updated successfully",
-        "data": product_schema.dump(product)
+        "data": product_search_schema.dump([product])[0]
     }), 200
 
 @products_bp.delete("/<int:product_id>")
@@ -405,6 +429,10 @@ def delete_product(product_id):
             }
         }), 403
 
+    product = db.session.scalar(select(Product).where(Product.product_id == product_id).with_for_update())
+    if db.session.scalar(select(OrderItem.order_item_id).where(OrderItem.product_id == product_id).limit(1)):
+        db.session.rollback()
+        return jsonify({"error": {"code": "PRODUCT_HAS_ORDERS", "message": "This product has orders. Set its status to inactive to archive it."}}), 409
     db.session.delete(product)
     db.session.commit()
 
@@ -475,6 +503,9 @@ def add_product_image(product_id):
             }
         }), 403
 
+
+    if farmer_profile.verification_status != "approved":
+        return jsonify({"error": {"code": "FARMER_NOT_VERIFIED", "message": "Complete farmer verification before managing listings"}}), 403
 
     saved_file_path = None
     uploaded_file = request.files.get("image")
@@ -678,6 +709,9 @@ def delete_product_image(product_id, image_id):
                 "message": "You can only delete images from your own products"
             }
         }), 403
+
+    if farmer_profile.verification_status != "approved":
+        return jsonify({"error": {"code": "FARMER_NOT_VERIFIED", "message": "Complete farmer verification before managing listings"}}), 403
 
     image = ProductImage.query.filter_by(
         image_id=image_id,

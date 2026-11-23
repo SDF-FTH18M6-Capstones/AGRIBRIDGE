@@ -17,25 +17,9 @@ EXPECTED_HOST = (
 
 @pytest.fixture
 def app():
-    load_dotenv(".env")
-
-    url = os.environ.get("TEST_DATABASE_URL")
-    if not url:
-        pytest.fail("TEST_DATABASE_URL is required")
-
-    test_app = create_app({
-        "TESTING": True,
-        "SQLALCHEMY_DATABASE_URI": url,
-    })
-
-    with test_app.app_context():
-        assert db.engine.url.host == EXPECTED_HOST
-        assert db.engine.url.database == "agribridge_db"
-
+    from tests.database import isolated_app
+    with isolated_app() as test_app:
         yield test_app
-
-        db.session.remove()
-
 
 @pytest.fixture
 def client(app):
@@ -47,7 +31,7 @@ def test_payment_creation_requires_authentication(client):
         "/api/payments",
         json={
             "order_id": 1,
-            "payment_method": "mpesa",
+            "payment_method": "paystack",
             "amount": "100.00",
         },
     )
@@ -139,7 +123,7 @@ def payment_data(app):
                 buyer_id=buyer.buyer_id,
                 farmer_id=farmer.farmer_id,
                 total_amount=Decimal("500.00"),
-                order_status="pending",
+                order_status="confirmed",
             )
 
             db.session.add(order)
@@ -220,7 +204,7 @@ def test_buyer_creates_pending_payment(client, app, payment_data):
         "/api/payments",
         json={
             "order_id": payment_data["order_id"],
-            "payment_method": "mpesa",
+            "payment_method": "paystack",
             "amount": "500.00",
         },
         headers={
@@ -267,7 +251,7 @@ def test_duplicate_pending_payment_is_rejected(
 
     payload = {
         "order_id": payment_data["order_id"],
-        "payment_method": "mpesa",
+        "payment_method": "paystack",
         "amount": "500.00",
     }
 
@@ -316,7 +300,7 @@ def test_other_buyer_cannot_create_payment(
         "/api/payments",
         json={
             "order_id": payment_data["order_id"],
-            "payment_method": "mpesa",
+            "payment_method": "paystack",
             "amount": "500.00",
         },
         headers={"Authorization": f"Bearer {token}"},
@@ -345,7 +329,7 @@ def test_other_buyer_cannot_retrieve_payment(
         "/api/payments",
         json={
             "order_id": payment_data["order_id"],
-            "payment_method": "mpesa",
+            "payment_method": "paystack",
             "amount": "500.00",
         },
         headers={"Authorization": f"Bearer {owner_token}"},
@@ -387,7 +371,7 @@ def test_buyer_cannot_update_payment_status(
         "/api/payments",
         json={
             "order_id": payment_data["order_id"],
-            "payment_method": "mpesa",
+            "payment_method": "paystack",
             "amount": "500.00",
         },
         headers={"Authorization": f"Bearer {token}"},
@@ -492,7 +476,7 @@ def test_active_admin_can_mark_payment_failed(
         "/api/payments",
         json={
             "order_id": payment_data["order_id"],
-            "payment_method": "mpesa",
+            "payment_method": "paystack",
             "amount": "500.00",
         },
         headers={"Authorization": f"Bearer {buyer_token}"},
@@ -533,7 +517,7 @@ def test_suspended_admin_cannot_update_payment(
         "/api/payments",
         json={
             "order_id": payment_data["order_id"],
-            "payment_method": "mpesa",
+            "payment_method": "paystack",
             "amount": "500.00",
         },
         headers={"Authorization": f"Bearer {buyer_token}"},
@@ -585,7 +569,7 @@ def test_admin_cannot_repeat_failed_update(
         "/api/payments",
         json={
             "order_id": payment_data["order_id"],
-            "payment_method": "mpesa",
+            "payment_method": "paystack",
             "amount": "500.00",
         },
         headers={"Authorization": f"Bearer {buyer_token}"},

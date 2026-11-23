@@ -1,4 +1,4 @@
-from marshmallow import Schema, fields, validate
+from marshmallow import Schema, fields, validate, validates, ValidationError
 
 
 class UserSchema(Schema):
@@ -21,7 +21,7 @@ class UserSchema(Schema):
         allow_none=True,
         load_default=None,
         validate=validate.Regexp(
-            r"^(?:\+254|254|0)7\d{8}$",
+            r"^(?:\+254|254|0)[17]\d{8}$",
             error="Enter a valid Kenyan mobile number.",
         ),
     )
@@ -34,3 +34,13 @@ class UserSchema(Schema):
             error="Role must be either farmer or buyer.",
         ),
     )
+
+    @validates("password")
+    def validate_password_bytes(self, value, **kwargs):
+        if len(value.encode("utf-8")) > 72:
+            raise ValidationError("Password must not exceed 72 UTF-8 bytes.")
+
+    @validates("full_name")
+    def validate_name(self, value, **kwargs):
+        if len(value.strip()) < 2:
+            raise ValidationError("Enter your full name.")

@@ -31,22 +31,9 @@ def create_test_jpeg():
 
 @pytest.fixture
 def app():
-    database_url = os.getenv("PRODUCT_TEST_DATABASE_URL")
-
-    if not database_url:
-        pytest.fail("PRODUCT_TEST_DATABASE_URL is missing")
-
-    if make_url(database_url).database != "product-testing":
-        pytest.fail("Unsafe database: expected product-testing")
-
-    test_app = create_app({
-        "TESTING": True,
-        "SQLALCHEMY_DATABASE_URI": database_url
-    })
-
-    with test_app.app_context():
+    from tests.database import isolated_app
+    with isolated_app() as test_app:
         yield test_app
-
 
 @pytest.fixture
 def client(app):
@@ -82,13 +69,13 @@ def sample_products(app):
         db.session.add_all([user1, user2])
         db.session.flush()
 
-        farmer1 = FarmerProfile(
+        farmer1 = FarmerProfile(verification_status="approved",
             user_id=user1.user_id,
             farm_name=f"CRUD Farm One {marker}",
             location="Kiambu County"
         )
 
-        farmer2 = FarmerProfile(
+        farmer2 = FarmerProfile(verification_status="approved",
             user_id=user2.user_id,
             farm_name=f"CRUD Farm Two {marker}",
             location="Nakuru County"

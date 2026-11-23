@@ -16,24 +16,9 @@ EXPECTED_TEST_HOST = (
 
 @pytest.fixture
 def app():
-    load_dotenv(".env")
-
-    database_url = os.environ["TEST_DATABASE_URL"]
-
-    test_app = create_app({
-        "TESTING": True,
-        "SQLALCHEMY_DATABASE_URI": database_url,
-    })
-
-    with test_app.app_context():
-        assert db.engine.url.host == EXPECTED_TEST_HOST
-        assert db.engine.url.database == "agribridge_db"
-
-    yield test_app
-
-    with test_app.app_context():
-        db.session.remove()
-
+    from tests.database import isolated_app
+    with isolated_app() as test_app:
+        yield test_app
 
 @pytest.fixture
 def client(app):
@@ -883,6 +868,7 @@ def test_complete_farmer_rejection_workflow(
         json={
             "action": "review",
             "decision": "rejected",
+            "remarks": "Farm requirements were not met; please correct the inspection issues.",
         },
         headers=headers("admin"),
     )
@@ -967,6 +953,7 @@ def test_complete_farmer_rejection_workflow(
         json={
             "action": "review",
             "decision": "rejected",
+            "remarks": "Farm requirements were not met; please correct the inspection issues.",
         },
         headers=headers("admin"),
     )
@@ -1186,6 +1173,7 @@ def test_completed_verification_cannot_be_reviewed_again(
         json={
             "action": "review",
             "decision": second_decision,
+            "remarks": "This verification has already been reviewed.",
         },
         headers=headers("admin"),
     )
@@ -1336,6 +1324,7 @@ def test_rejected_farmer_can_reapply(client, app, farmer_data):
             {
                 "action": "review",
                 "decision": "rejected",
+            "remarks": "Farm requirements were not met; please correct the inspection issues.",
                 "remarks": "   ",
             },
             "INVALID_REMARKS",

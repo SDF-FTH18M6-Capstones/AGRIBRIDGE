@@ -1,5 +1,5 @@
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import CheckConstraint, Numeric, UniqueConstraint
 from sqlalchemy.orm import validates
@@ -21,6 +21,9 @@ ORDER_STATUSES = (
     "delivered",
     "completed",
     "cancelled",
+    "rejected",
+    "expired",
+    "paid",
 )
 PAYMENT_STATUSES = ("pending", "paid", "failed", "refunded")
 
@@ -60,6 +63,7 @@ class User(TimestampMixin, db.Model):
     full_name = db.Column(db.Text, nullable=False)
     email = db.Column(db.Text, nullable=False, unique=True)
     password_hash = db.Column(db.Text, nullable=False)
+    auth_version = db.Column(db.Integer, nullable=False, default=0, server_default="0")
     phone_number = db.Column(db.Text, unique=True)
     role_id = db.Column(
         db.Integer,
@@ -310,7 +314,7 @@ class FarmerVerification(db.Model):
     created_at = db.Column(
         db.DateTime,
         nullable=False,
-        default=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
     )
 
     farmer = db.relationship(
@@ -363,11 +367,6 @@ class Product(TimestampMixin, db.Model):
         db.ForeignKey("categories.category_id"),
         nullable=False,
         index=True,
-    )
-    saved_by = db.relationship(
-        "SavedProduct",
-        back_populates="product",
-        cascade="all, delete-orphan",
     )
     product_name = db.Column(db.Text, nullable=False)
     description = db.Column(db.Text)
@@ -606,6 +605,14 @@ class Order(TimestampMixin, db.Model):
         nullable=False,
         index=True,
     )
+    checkout_key = db.Column(db.String(64))
+    checkout_fingerprint = db.Column(db.String(64))
+    confirmation_deadline = db.Column(db.DateTime(timezone=True), index=True)
+    payment_deadline = db.Column(db.DateTime(timezone=True), index=True)
+    confirmed_at = db.Column(db.DateTime(timezone=True))
+    completed_at = db.Column(db.DateTime(timezone=True))
+    stock_released_at = db.Column(db.DateTime(timezone=True))
+    rejection_reason = db.Column(db.Text)
     total_amount = db.Column(Numeric(12, 2), nullable=False)
     order_status = db.Column(
         db.Text,
@@ -616,6 +623,7 @@ class Order(TimestampMixin, db.Model):
     )
 
     __table_args__ = (
+        UniqueConstraint("buyer_id", "farmer_id", "checkout_key", name="uq_order_checkout_farmer"),
         CheckConstraint(
             "total_amount > 0",
             name="check_order_total_positive",
@@ -662,6 +670,8 @@ class OrderItem(db.Model):
         nullable=False,
         index=True,
     )
+    product_name = db.Column(db.Text, nullable=False, default="Product")
+    unit = db.Column(db.Text, nullable=False, default="kg")
     quantity = db.Column(Numeric(12, 3), nullable=False)
     unit_price = db.Column(Numeric(12, 2), nullable=False)
     subtotal = db.Column(Numeric(12, 2), nullable=False)
@@ -688,6 +698,8 @@ class OrderItem(db.Model):
 class Payment(TimestampMixin, db.Model):
     __tablename__ = "payments"
 
+    provider_request_id = db.Column(db.Text, unique=True)
+    authorization_url = db.Column(db.Text)
     payment_id = db.Column(db.Integer, primary_key=True)
     order_id = db.Column(
         db.Integer,
@@ -782,3 +794,56 @@ class PasswordResetToken(db.Model):
     )
 
     user = db.relationship("User")
+
+
+class MarketplaceSettings(db.Model):
+    __tablename__ = "marketplace_settings"
+    settings_id = db.Column(db.Integer, primary_key=True)
+    confirmation_hours = db.Column(db.Integer, nullable=False, default=12)
+    payment_hours = db.Column(db.Integer, nullable=False, default=2)
+
+
+class AuditEvent(db.Model):
+    __tablename__ = "audit_events"
+    event_id = db.Column(db.Integer, primary_key=True)
+    actor_id = db.Column(db.Integer, db.ForeignKey("users.user_id"))
+    entity_type = db.Column(db.Text, nullable=False)
+    entity_id = db.Column(db.Integer, nullable=False, index=True)
+    action = db.Column(db.Text, nullable=False)
+    details = db.Column(db.JSON, nullable=False, default=dict)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, server_default=db.func.now())
+
+
+class Notification(db.Model):
+    __tablename__ = "notifications"
+    notification_id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.user_id"), nullable=False, index=True)
+    title = db.Column(db.Text, nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    link = db.Column(db.Text, nullable=False, default="/profile")
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, server_default=db.func.now())
+    read_at = db.Column(db.DateTime(timezone=True))
+    email_status = db.Column(db.Text, nullable=False, default="pending")
+    email_attempts = db.Column(db.Integer, nullable=False, default=0)
+    email_retry_at = db.Column(db.DateTime(timezone=True))
+    user = db.relationship("User")
+
+
+class OrderIssue(db.Model):
+    __tablename__ = "order_issues"
+    issue_id = db.Column(db.Integer, primary_key=True)
+    order_id = db.Column(db.Integer, db.ForeignKey("orders.order_id"), nullable=False, index=True)
+    requested_by = db.Column(db.Integer, db.ForeignKey("users.user_id"), nullable=False)
+    issue_type = db.Column(db.Text, nullable=False)
+    reason = db.Column(db.Text, nullable=False)
+    status = db.Column(db.Text, nullable=False, default="open")
+    resolution_note = db.Column(db.Text)
+    refund_reference = db.Column(db.Text, unique=True)
+    reviewed_by = db.Column(db.Integer, db.ForeignKey("users.user_id"))
+    reviewed_at = db.Column(db.DateTime(timezone=True))
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, server_default=db.func.now())
+    order = db.relationship("Order")
+    __table_args__ = (
+        CheckConstraint("status IN ('open', 'resolved', 'rejected')", name="check_order_issue_status"),
+        CheckConstraint("issue_type IN ('cancellation', 'refund', 'payment')", name="check_order_issue_type"),
+    )

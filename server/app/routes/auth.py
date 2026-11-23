@@ -44,11 +44,29 @@ def _send_reset_email(user, raw_token):
 
     reset_link = f"{reset_url}?token={raw_token}"
 
-    current_app.logger.info(
-        "Password reset link prepared for %s: %s",
-        user.email,
-        reset_link,
-    )
+    import smtplib
+    import ssl
+    from email.message import EmailMessage
+
+    server = current_app.config.get("MAIL_SERVER")
+    sender = current_app.config.get("MAIL_DEFAULT_SENDER")
+    if not server or not sender:
+        raise RuntimeError("Password reset email is not configured")
+    message = EmailMessage()
+    message["Subject"] = "Reset your AgriBridge password"
+    message["From"] = sender
+    message["To"] = user.email
+    message.set_content(f"Reset your password using this link: {reset_link}\n"
+                        "If you did not request this, ignore this email.")
+    transport = smtplib.SMTP_SSL if current_app.config["MAIL_USE_SSL"] else smtplib.SMTP
+    with transport(server, current_app.config["MAIL_PORT"],
+                   timeout=current_app.config["MAIL_TIMEOUT"],
+                   **({"context": ssl.create_default_context()} if current_app.config["MAIL_USE_SSL"] else {})) as smtp:
+        if current_app.config["MAIL_USE_TLS"] and not current_app.config["MAIL_USE_SSL"]:
+            smtp.starttls(context=ssl.create_default_context())
+        if current_app.config.get("MAIL_USERNAME"):
+            smtp.login(current_app.config["MAIL_USERNAME"], current_app.config["MAIL_PASSWORD"])
+        smtp.send_message(message)
 
 
 @auth_bp.route("/register", methods=["POST"])
@@ -95,26 +113,12 @@ def register():
             409,
         )
 
-    role_name = values.get("role")
-    role = None
-
     try:
-        if role_name:
-            role_name = role_name.strip().lower()
-            role = Role.query.filter_by(
-                role_name=role_name
-            ).first()
-
-            if role is None:
-                role = Role(role_name=role_name)
-                db.session.add(role)
-                db.session.flush()
-
         user = User(
             full_name=values["full_name"].strip(),
             email=email,
             phone_number=phone_number,
-            role_id=role.role_id if role else None,
+            role_id=None,
         )
 
         user.set_password(values["password"])
@@ -130,17 +134,14 @@ def register():
             409,
         )
 
-    return success_response(
-        "Registration successful.",
-        {
-            "user_id": user.user_id,
-            "full_name": user.full_name,
-            "email": user.email,
-            "phone_number": user.phone_number,
-            "role": role.role_name if role else None,
-        },
-        201,
-    )
+    from app.routes.profiles import get_user_data
+    user_data = get_user_data(user)
+    return success_response("Registration successful.", {
+        **user_data, "user": user_data,
+        "access_token": create_access_token(identity=str(user.user_id)),
+        "token_type": "Bearer",
+    }, 201)
+
 
 @auth_bp.route("/login", methods=["POST"])
 def login():
@@ -174,6 +175,8 @@ def login():
             401,
         )
 
+    from app.routes.profiles import get_user_data
+
     access_token = create_access_token(
         identity=str(user.user_id)
     )
@@ -183,13 +186,7 @@ def login():
         {
             "access_token": access_token,
             "token_type": "Bearer",
-            "user": {
-                "user_id": user.user_id,
-                "full_name": user.full_name,
-                "email": user.email,
-                "phone_number": user.phone_number,
-                "role": user.role.role_name if user.role else None,
-            },
+            "user": get_user_data(user),
         },
     )
 
@@ -356,8 +353,19 @@ def reset_password():
             400,
         )
 
+    # Serialize resets for the account and re-read token state after locking.
+    from sqlalchemy import select, update
+    user = db.session.scalar(select(User).where(User.user_id == user.user_id)
+                             .with_for_update().execution_options(populate_existing=True))
+    db.session.refresh(reset_record)
+    if reset_record.used_at is not None:
+        return error_response("INVALID_RESET_TOKEN", "The reset token has already been used.", 400)
     user.set_password(new_password)
-    reset_record.used_at = datetime.now(timezone.utc)
+    user.auth_version += 1
+    db.session.execute(update(PasswordResetToken).where(
+        PasswordResetToken.user_id == user.user_id,
+        PasswordResetToken.used_at.is_(None),
+    ).values(used_at=datetime.now(timezone.utc)))
 
     db.session.commit()
 

@@ -1,13 +1,13 @@
 
 import {
-  createContext,
   useCallback,
   useEffect,
   useMemo,
   useState,
 } from "react";
 
-export const AuthContext = createContext(null);
+import { AuthContext } from "./auth-context";
+import api from "../services/api";
 
 const TOKEN_KEY = "agribridge_auth_token";
 const USER_KEY = "agribridge_auth_user";
@@ -15,6 +15,7 @@ const USER_KEY = "agribridge_auth_user";
 function clearStoredSession() {
   sessionStorage.removeItem(TOKEN_KEY);
   sessionStorage.removeItem(USER_KEY);
+  sessionStorage.removeItem("agribridge_pending_checkout");
 }
 
 function getTokenExpiry(token) {
@@ -78,10 +79,17 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(readStoredSession);
 
   const { token, user } = session;
+  const [checking, setChecking] = useState(Boolean(session.token));
 
   const logout = useCallback(() => {
+    const activeToken = sessionStorage.getItem(TOKEN_KEY);
     clearStoredSession();
     setSession({ token: null, user: null });
+    if (activeToken) {
+      fetch(`${import.meta.env.VITE_API_BASE_URL || "/api"}/logout`, {
+        method: "POST", headers: { Authorization: `Bearer ${activeToken}` },
+      }).catch(() => {});
+    }
   }, []);
 
   const login = useCallback(({ token: newToken, user: newUser }) => {
@@ -135,7 +143,7 @@ useEffect(() => {
     }
 
     setSession((current) => {
-      if (!current.token) return current;
+      if (!current.token || current.user?.user_id !== updatedUser.user_id) return current;
 
       sessionStorage.setItem(
         USER_KEY,
@@ -152,8 +160,8 @@ useEffect(() => {
     const expiry = getTokenExpiry(token);
 
     if (!expiry || expiry <= Date.now()) {
-      logout();
-      return;
+      const timer = setTimeout(logout, 0);
+      return () => clearTimeout(timer);
     }
 
     const remaining = expiry - Date.now();
@@ -187,6 +195,24 @@ useEffect(() => {
     };
   }, [token, logout]);
 
+  const refreshUser = useCallback(async () => {
+    if (!token) return;
+    try {
+      const response = await api.get("/profiles/me");
+      updateUser(response.data.data);
+      return response.data.data;
+    } finally { setChecking(false); }
+  }, [token, updateUser]);
+
+  useEffect(() => {
+    if (!token) return;
+    refreshUser().catch(() => {});
+    const refresh = () => { if (document.visibilityState === "visible") refreshUser().catch(() => {}); };
+    window.addEventListener("focus", refresh);
+    const timer = setInterval(refresh, 30000);
+    return () => { window.removeEventListener("focus", refresh); clearInterval(timer); };
+  }, [token, refreshUser]);
+
   const value = useMemo(
     () => ({
       token,
@@ -195,8 +221,10 @@ useEffect(() => {
       login,
       logout,
       updateUser,
+      checking: Boolean(token && checking),
+      refreshUser,
     }),
-    [token, user, login, logout, updateUser]
+    [token, user, login, logout, updateUser, checking, refreshUser]
   );
 
   return (

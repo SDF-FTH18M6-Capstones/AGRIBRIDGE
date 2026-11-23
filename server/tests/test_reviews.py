@@ -171,7 +171,7 @@ def delivered_order(app, buyer_profile, farmer_profile):
             buyer_id=buyer_profile,
             farmer_id=farmer_profile,
             total_amount="2500.00",
-            order_status="delivered"
+            order_status="completed"
         )
 
         db.session.add(order)
@@ -187,7 +187,7 @@ def second_delivered_order(app, buyer_profile, farmer_profile):
             buyer_id=buyer_profile,
             farmer_id=farmer_profile,
             total_amount="3500.00",
-            order_status="delivered"
+            order_status="completed"
         )
 
         db.session.add(order)
@@ -607,7 +607,7 @@ def test_buyer_reviews_only_include_their_own_orders(
             buyer_id=other_buyer_profile,
             farmer_id=farmer_profile,
             total_amount="4000.00",
-            order_status="delivered"
+            order_status="completed"
         )
 
         db.session.add(other_order)

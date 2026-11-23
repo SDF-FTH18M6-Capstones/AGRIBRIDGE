@@ -1,3 +1,4 @@
+import useAuth from "../../../hooks/useAuth";
 
 import { Link, useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -9,12 +10,10 @@ import {
 
 function FarmerHeader() {
   const navigate = useNavigate();
+  const { logout, user } = useAuth();
 
   const handleLogout = () => {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-    localStorage.removeItem("user");
-
+    logout();
     navigate("/login", { replace: true });
   };
 
@@ -32,10 +31,10 @@ function FarmerHeader() {
 
       <nav className="flex flex-wrap items-center gap-3">
         <Link
-          to="/buyer"
+          to={user.capabilities?.buyer ? "/buyer" : "/profile?setup=buyer"}
           className="inline-flex items-center justify-center rounded-lg border border-[#174832] bg-white px-4 py-2 text-sm font-semibold text-[#174832] hover:bg-[#174832] hover:text-white"
         >
-          Switch to Buyer
+          {user.capabilities?.buyer ? "Buyer dashboard" : "Buyer setup"}
         </Link>
 
         <Link
@@ -47,7 +46,7 @@ function FarmerHeader() {
         </Link>
 
         <Link
-          to="/farmer/settings"
+          to="/profile"
           className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-green-50 hover:text-[#159447]"
         >
           <FontAwesomeIcon icon={faUser} className="h-4 w-4" />

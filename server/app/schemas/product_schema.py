@@ -1,3 +1,4 @@
+from decimal import Decimal
 from marshmallow import (
     Schema,
     fields,
@@ -26,13 +27,13 @@ class ProductSchema(Schema):
     price = fields.Decimal(
         required=True,
         as_string=True,
-        validate=validate.Range(min=0.01),
+        validate=validate.Range(min=Decimal("0.01"), max=Decimal("9999999999.99")),
     )
 
     quantity_available = fields.Decimal(
         required=True,
         as_string=True,
-        validate=validate.Range(min=0.001),
+        validate=validate.Range(min=0, max=Decimal("999999999.999")),
     )
 
     unit = fields.Str(
@@ -60,6 +61,15 @@ class ProductSchema(Schema):
             "inactive"
         ]),
     )
+
+    @validates_schema
+    def validate_stock_status(self, data, **kwargs):
+        for key, precision in (("price", "0.01"), ("quantity_available", "0.001")):
+            value = data.get(key)
+            if value is not None and value != value.quantize(Decimal(precision)):
+                raise ValidationError({key: ["Too many decimal places."]})
+        if data.get("status") == "available" and data.get("quantity_available", 1) <= 0:
+            raise ValidationError({"quantity_available": ["Available products must have positive stock."]})
 
     image_url = fields.Method("get_image_url")
 
@@ -139,6 +149,11 @@ class ProductSearchSchema(Schema):
 
     farmer_id = fields.Int()
     farm_name = fields.Method("get_farm_name")
+    verification_status = fields.Method("get_verification_status")
+
+    def get_verification_status(self, product):
+        return product.farmer.verification_status if product.farmer else "pending"
+
     farmer_location = fields.Method("get_farmer_location")
     image_url = fields.Method("get_image_url")
 

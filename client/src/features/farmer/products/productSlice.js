@@ -2,7 +2,6 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import api from "../../../services/api";
 
-const STORAGE_KEY = "agribridge-farmer-products";
 
 // Convert backend product into frontend format.
 export const mapBackendProduct = (product) => {
@@ -212,17 +211,6 @@ const productSlice = createSlice({
       );
     },
 
-    // Persist current Redux products in browser storage.
-    persistProducts(state) {
-      try {
-        localStorage.setItem(
-          STORAGE_KEY,
-          JSON.stringify(state.items)
-        );
-      } catch {
-        // Browser storage is optional.
-      }
-    },
   },
 
   extraReducers: (builder) => {
@@ -235,15 +223,6 @@ const productSlice = createSlice({
       .addCase(fetchMyProducts.fulfilled, (state, action) => {
         state.loading = false;
         state.items = action.payload;
-
-        try {
-          localStorage.setItem(
-            STORAGE_KEY,
-            JSON.stringify(state.items)
-          );
-        } catch {
-          // Browser storage is optional.
-        }
       })
       .addCase(fetchMyProducts.rejected, (state, action) => {
         state.loading = false;
@@ -267,15 +246,6 @@ const productSlice = createSlice({
         state.items = state.items.map((item) =>
           item.id === tempId ? product : item
         );
-
-        try {
-          localStorage.setItem(
-            STORAGE_KEY,
-            JSON.stringify(state.items)
-          );
-        } catch {
-          // Browser storage is optional.
-        }
       })
       .addCase(createProduct.rejected, (state, action) => {
         const tempId = action.meta.arg.tempId;
@@ -309,15 +279,6 @@ const productSlice = createSlice({
         state.pendingIds = state.pendingIds.filter(
           (id) => id !== updatedProduct.id
         );
-
-        try {
-          localStorage.setItem(
-            STORAGE_KEY,
-            JSON.stringify(state.items)
-          );
-        } catch {
-          // Browser storage is optional.
-        }
       })
       .addCase(updateProduct.rejected, (state, action) => {
         const id = action.meta.arg.id;
@@ -347,15 +308,6 @@ const productSlice = createSlice({
         state.pendingIds = state.pendingIds.filter(
           (id) => id !== action.payload
         );
-
-        try {
-          localStorage.setItem(
-            STORAGE_KEY,
-            JSON.stringify(state.items)
-          );
-        } catch {
-          // Browser storage is optional.
-        }
       })
       .addCase(deleteProduct.rejected, (state, action) => {
         const id = action.meta.arg;
@@ -375,7 +327,6 @@ export const {
   removeOptimisticProduct,
   updateOptimisticProduct,
   restoreProduct,
-  persistProducts,
 } = productSlice.actions;
 
 export default productSlice.reducer;

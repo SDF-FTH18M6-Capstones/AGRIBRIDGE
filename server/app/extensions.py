@@ -34,4 +34,11 @@ def check_if_token_revoked(jwt_header, jwt_payload):
 
     user = db.session.get(User, user_id)
 
-    return user is None
+    return user is None or jwt_payload.get("auth_version", 0) != user.auth_version
+
+
+@jwt.additional_claims_loader
+def user_token_version(identity):
+    from app.models import User
+    user = db.session.get(User, int(identity))
+    return {"auth_version": user.auth_version if user else 0}

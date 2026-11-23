@@ -1,37 +1,13 @@
-
 import { Navigate, useLocation } from "react-router-dom";
-import useAuth from "../../hooks/useAuth.js";
-
-export default function ProtectedRoute({
-  children,
-  allowedRoles = [],
-}) {
-  const { isAuthenticated, user } = useAuth();
+import useAuth from "../../hooks/useAuth";
+export default function ProtectedRoute({ children, allowedRoles = [] }) {
+  const { isAuthenticated, user, checking } = useAuth();
   const location = useLocation();
-
-  // User must log in first.
-  if (!isAuthenticated) {
-    return (
-      <Navigate
-        to="/login"
-        replace
-        state={{ from: location }}
-      />
-    );
+  if (!isAuthenticated) return <Navigate to="/login" replace state={{ from: location }} />;
+  if (checking) return <p className="p-8" role="status">Checking account access…</p>;
+  if (allowedRoles.length && !allowedRoles.some(role => user?.capabilities?.[role])) {
+    const setup = allowedRoles.includes("buyer") ? "buyer" : allowedRoles.includes("farmer") ? "farmer" : "";
+    return <Navigate to={setup ? `/profile?setup=${setup}&next=${encodeURIComponent(location.pathname + location.search)}` : "/marketplace"} replace />;
   }
-
-  // Normalize the role for comparison.
-  const userRole = String(user?.role ?? "")
-    .trim()
-    .toLowerCase();
-
-  // Restrict pages to authorized roles.
-  if (
-    allowedRoles.length > 0 &&
-    !allowedRoles.includes(userRole)
-  ) {
-    return <Navigate to="/" replace />;
-  }
-
   return children;
 }

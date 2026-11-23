@@ -1,3 +1,4 @@
+from decimal import Decimal
 from marshmallow import Schema, fields,validate
 
 class PaymentSchema(Schema):
@@ -10,7 +11,7 @@ class PaymentSchema(Schema):
     payment_method = fields.Str(
         required=True,
         validate=validate.OneOf(
-            ["mpesa", "airtel_money", "bank_transfer"]
+            ["paystack", "mpesa", "airtel_money", "bank_transfer"]
         )
     )
 
@@ -22,7 +23,7 @@ class PaymentSchema(Schema):
     amount = fields.Decimal(
         required=True,
         as_string=True,
-        validate=validate.Range(min=0.01)
+        validate=validate.Range(min=Decimal("0.01"), max=Decimal("9999999999.99"))
     )
 
     payment_status = fields.Str(

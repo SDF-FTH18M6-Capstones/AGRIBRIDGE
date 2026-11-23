@@ -199,13 +199,6 @@ def farmer_dashboard():
             404,
         )
 
-    if user.role is None or user.role.role_name != "farmer":
-        return error_response(
-            "FORBIDDEN",
-            "A farmer account is required to access this dashboard",
-            403,
-        )
-
     farmer = user.farmer_profile
 
     if farmer is None:
@@ -214,6 +207,9 @@ def farmer_dashboard():
             "A farmer profile is required",
             403,
         )
+
+    if farmer.verification_status != "approved":
+        return error_response("FARMER_NOT_VERIFIED", "Farmer approval is required", 403)
 
     order_filter = Order.farmer_id == farmer.farmer_id
 
@@ -238,13 +234,6 @@ def buyer_dashboard():
             404,
         )
 
-    if user.role is None or user.role.role_name != "buyer":
-        return error_response(
-            "FORBIDDEN",
-            "A buyer account is required to access this dashboard",
-            403,
-        )
-
     buyer = user.buyer_profile
 
     if buyer is None:
@@ -258,7 +247,6 @@ def buyer_dashboard():
 
     return jsonify({
         "data": {
-            "requests": request_summary(buyer.buyer_id),
             "orders": order_summary((order_filter,)),
             "payments": payment_summary(order_filter),
         }

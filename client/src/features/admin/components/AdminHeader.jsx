@@ -1,3 +1,4 @@
+import useAuth from "../../../hooks/useAuth";
 
 import { Link, useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -9,12 +10,10 @@ import {
 
 function AdminHeader() {
   const navigate = useNavigate();
+  const { logout } = useAuth();
 
   const handleLogout = () => {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-    localStorage.removeItem("user");
-
+    logout();
     navigate("/login", { replace: true });
   };
 
@@ -44,7 +43,7 @@ function AdminHeader() {
 
         {/* Profile */}
         <Link
-          to="/admin/settings"
+          to="/account"
           className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-green-50 hover:text-[#159447]"
         >
           <FontAwesomeIcon icon={faUser} className="h-4 w-4" />

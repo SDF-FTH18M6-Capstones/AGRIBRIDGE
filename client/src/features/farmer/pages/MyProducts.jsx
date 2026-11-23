@@ -75,7 +75,7 @@ function FarmerMyProducts() {
 
     if (pendingIds.includes(product.id)) return;
 
-    const qty = Math.floor(Number(raw));
+    const qty = Number(raw);
     let status = product.status;
 
     if (qty === 0 && status === "Active") status = "Sold out";
@@ -100,8 +100,9 @@ function FarmerMyProducts() {
       setMessage(`${product.name} quantity updated successfully.`);
 
       setQtyDraft((draft) => {
-        const { [product.id]: removed, ...rest } = draft;
-        return rest;
+        const next = { ...draft };
+        delete next[product.id];
+        return next;
       });
     } catch (error) {
       dispatch(restoreProduct(previousProduct));

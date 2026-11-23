@@ -2,7 +2,7 @@
 import { NavLink } from "react-router-dom";
 
 const menuItems = [
-  { name: "Overview", path: "/" },
+  { name: "Overview", path: "/admin" },
   { name: "Farmers", path: "/admin/farmers" },
   { name: "Verification", path: "/admin/verification" },
   { name: "Field officers", path: "/admin/field-officers" },
@@ -12,24 +12,25 @@ const menuItems = [
   { name: "Orders", path: "/admin/orders" },
   { name: "Payments", path: "/admin/payments" },
   { name: "Notifications", path: "/admin/notifications" },
-  { name: "Disputes", path: "/admin/disputes" },
+  { name: "Exceptions & refunds", path: "/admin/exceptions" },
+  { name: "Audit history", path: "/admin/audit" },
   { name: "Reports", path: "/admin/reports" },
   { name: "Settings", path: "/admin/settings" },
 ];
 
 function AdminSidebar() {
   return (
-    <aside className="min-h-screen w-[220px] shrink-0 bg-[#12432f] px-5 py-5 text-white">
+    <aside className="w-full md:min-h-screen md:w-[220px] shrink-0 bg-[#12432f] px-5 py-5 text-white">
       <h2 className="mb-7 text-xl font-bold tracking-tight">
         AgriBridge
       </h2>
 
-      <nav className="flex flex-col gap-1">
+      <nav className="grid grid-cols-2 gap-1 sm:grid-cols-3 md:flex md:flex-col">
         {menuItems.map((item) => (
           <NavLink
             key={item.name}
             to={item.path}
-            end={item.path === "/"}
+            end={item.path === "/admin"}
             className={({ isActive }) =>
               `rounded-md px-3 py-2 text-sm transition-colors ${
                 isActive
