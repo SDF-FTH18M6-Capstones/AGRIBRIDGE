@@ -79,11 +79,11 @@ def create_review():
             }
         }), 403
 
-    if order.order_status != "delivered":
+    if order.order_status != "completed":
         return jsonify({
             "error": {
                 "code": "ORDER_NOT_DELIVERED",
-                "message": "Only delivered orders can be reviewed"
+                "message": "Confirm receipt before leaving a review"
             }
         }), 409
 

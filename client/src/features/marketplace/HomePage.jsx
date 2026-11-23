@@ -1,53 +1,6 @@
 
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-
-const featuredProducts = [
-  {
-    id: 1,
-    name: "Fresh Tomatoes",
-    price: 120,
-    unit: "kg",
-    quantity: 200,
-    county: "Nakuru",
-    harvested: "12 Nov 2026",
-    image:
-      "https://images.unsplash.com/photo-1546094096-0df4bcaaa337?auto=format&fit=crop&w=700&q=80",
-  },
-  {
-    id: 2,
-    name: "Ripe Mangoes",
-    price: 150,
-    unit: "kg",
-    quantity: 120,
-    county: "Makueni",
-    harvested: "10 Nov 2026",
-    image:
-      "https://images.unsplash.com/photo-1553279768-865429fa0078?auto=format&fit=crop&w=700&q=80",
-  },
-  {
-    id: 3,
-    name: "Dry Maize",
-    price: 65,
-    unit: "kg",
-    quantity: 500,
-    county: "Uasin Gishu",
-    harvested: "25 Oct 2026",
-    image:
-      "https://images.unsplash.com/photo-1551754655-cd27e38d2076?auto=format&fit=crop&w=700&q=80",
-  },
-  {
-    id: 4,
-    name: "Irish Potatoes",
-    price: 80,
-    unit: "kg",
-    quantity: 300,
-    county: "Nyandarua",
-    harvested: "Pending harvest",
-    image:
-      "https://images.unsplash.com/photo-1518977676601-b53f82aba655?auto=format&fit=crop&w=700&q=80",
-  },
-];
+import { Link } from "react-router-dom";
 
 const categories = [
   {
@@ -61,12 +14,12 @@ const categories = [
       "https://images.unsplash.com/photo-1619566636858-adf3ef46400b?auto=format&fit=crop&w=500&q=80",
   },
   {
-    name: "Cereals and grains",
+    name: "Grains",
     image:
       "https://images.unsplash.com/photo-1551754655-cd27e38d2076?auto=format&fit=crop&w=500&q=80",
   },
   {
-    name: "Tubers",
+    name: "Roots & Tubers",
     image:
       "https://images.unsplash.com/photo-1518977676601-b53f82aba655?auto=format&fit=crop&w=500&q=80",
   },
@@ -93,8 +46,8 @@ const benefits = [
       "https://images.unsplash.com/photo-1521737711867-e3b97375f902?auto=format&fit=crop&w=300&q=80",
   },
   {
-    title: "M-Pesa payments",
-    description: "A familiar payment option for agricultural transactions.",
+    title: "Paystack payments",
+    description: "Confirm first, then test payment through Paystack test mode.",
     image:
       "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9?auto=format&fit=crop&w=300&q=80",
   },
@@ -105,42 +58,23 @@ const howItWorks = [
     number: "01",
     title: "Sign up",
     description:
-      "Create an account and choose to participate as a farmer or buyer.",
+      "Create one account and start browsing. Add buyer and farmer profiles from your account.",
   },
   {
     number: "02",
     title: "List or order",
     description:
-      "Farmers list produce. Buyers browse products or post buying requests.",
+      "Approved farmers list produce. Buyers complete their details and place orders.",
   },
   {
     number: "03",
     title: "Accept and pay",
     description:
-      "Farmers accept orders, then buyers can pay through M-Pesa.",
-  },
-];
-
-const farmerProfiles = [
-  {
-    id: 1,
-    name: "Verified farmer",
-    location: "Nakuru County",
-  },
-  {
-    id: 2,
-    name: "Verified farmer",
-    location: "Makueni County",
-  },
-  {
-    id: 3,
-    name: "Verified farmer",
-    location: "Nyandarua County",
+      "Farmers confirm orders, buyers pay through Paystack test mode, then confirm receipt.",
   },
 ];
 
 export default function HomePage() {
-  const navigate = useNavigate();
   const [search, setSearch] = useState("");
 
   const handleSearch = (event) => {
@@ -148,7 +82,7 @@ export default function HomePage() {
 
     const query = search.trim();
 
-    navigate(
+    window.location.assign(
       query
         ? `/marketplace?q=${encodeURIComponent(query)}`
         : "/marketplace"
@@ -160,7 +94,7 @@ export default function HomePage() {
 
       {/* NAVIGATION BAR */}
       <header className="w-full bg-green-800 shadow-md">
-        <nav className="flex w-full items-center justify-between px-6 py-5 lg:px-12">
+        <nav className="flex w-full flex-wrap items-center justify-between gap-5 px-6 py-5 lg:px-12">
 
           {/* AGRIBRIDGE - FAR LEFT */}
           <Link
@@ -171,7 +105,7 @@ export default function HomePage() {
           </Link>
 
           {/* NAVIGATION LINKS - FAR RIGHT */}
-          <div className="flex items-center gap-8">
+          <div className="flex flex-wrap items-center gap-4 sm:gap-8">
             <Link
               to="/"
               className="whitespace-nowrap font-semibold text-white transition hover:text-green-200"
@@ -180,7 +114,7 @@ export default function HomePage() {
             </Link>
 
             <Link
-              to="/marketplace"
+              to="/marketplace" reloadDocument
               className="whitespace-nowrap font-semibold text-white transition hover:text-green-200"
             >
               Marketplace
@@ -242,11 +176,11 @@ export default function HomePage() {
               to="/register"
               className="rounded-lg bg-green-800 px-6 py-3 font-semibold text-white shadow-sm transition hover:bg-green-900"
             >
-              Join as a Farmer
+              Create your account
             </Link>
 
             <Link
-              to="/marketplace"
+              to="/marketplace" reloadDocument
               className="rounded-lg border border-green-800 bg-white px-6 py-3 font-semibold text-green-900 transition hover:bg-green-50"
             >
               Shop Produce
@@ -300,7 +234,7 @@ export default function HomePage() {
           </h2>
 
           <Link
-            to="/marketplace"
+            to="/marketplace" reloadDocument
             className="text-sm font-semibold text-green-800 hover:underline"
           >
             View all
@@ -311,7 +245,7 @@ export default function HomePage() {
           {categories.map((category) => (
             <Link
               key={category.name}
-              to={`/marketplace?category=${encodeURIComponent(category.name)}`}
+              to={`/marketplace?category=${encodeURIComponent(category.name)}`} reloadDocument
               className="group overflow-hidden rounded-2xl border border-green-100 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md"
             >
               <img
@@ -331,75 +265,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* FEATURED PRODUCTS */}
-      <section className="bg-white py-16">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="mb-2 text-sm font-bold uppercase tracking-widest text-green-700">
-                Fresh from the farm
-              </p>
-
-              <h2 className="text-2xl font-bold text-green-950 sm:text-3xl">
-                Featured Produce
-              </h2>
-
-              <p className="mt-2 text-gray-600">
-                Explore fresh agricultural products available on AgriBridge.
-              </p>
-            </div>
-
-            <Link
-              to="/marketplace"
-              className="font-semibold text-green-800 hover:underline"
-            >
-              Explore Marketplace
-            </Link>
-          </div>
-
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {featuredProducts.map((product) => (
-              <article
-                key={product.id}
-                className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:shadow-md"
-              >
-                <img
-                  src={product.image}
-                  alt={product.name}
-                  className="h-44 w-full object-cover"
-                  loading="lazy"
-                />
-
-                <div className="p-5">
-                  <h3 className="text-lg font-bold text-gray-900">
-                    {product.name}
-                  </h3>
-
-                  <p className="mt-2 font-bold text-green-800">
-                    KSh {product.price.toLocaleString("en-KE")} / {product.unit}
-                  </p>
-
-                  <p className="mt-3 text-sm text-gray-600">
-                    {product.quantity} {product.unit} available
-                  </p>
-
-                  <p className="mt-1 text-sm text-gray-600">
-                    {product.county}
-                  </p>
-
-                  <p className="mt-1 text-xs text-gray-500">
-                    {product.harvested === "Pending harvest"
-                      ? product.harvested
-                      : `Harvested ${product.harvested}`}
-                  </p>
-
-                  <span className="mt-4 inline-block rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-800">
-                    Verified farmer
-                  </span>
-                </div>
-              </article>
-            ))}
-          </div>
+      <section className="bg-green-950 py-12 text-white">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-6 px-4 sm:px-6 lg:px-8">
+          <div><h2 className="text-2xl font-bold">See what’s available today.</h2><p className="mt-3 text-green-100">Explore current listings, prices and stock from approved farms.</p></div>
+          <a href="/marketplace" className="rounded-xl bg-white px-6 py-3 font-bold text-green-950">Open marketplace</a>
         </div>
       </section>
 
@@ -484,54 +353,20 @@ export default function HomePage() {
         <div className="flex flex-col items-start justify-between gap-6 rounded-2xl border border-green-200 bg-white p-7 shadow-sm md:flex-row md:items-center md:p-10">
           <div>
             <h2 className="text-2xl font-bold text-green-950">
-              Need Produce in Bulk?
+              Ready to place your first order?
             </h2>
 
             <p className="mt-2 text-gray-600">
-              Post a buying request and let farmers respond to your needs.
+              Complete your buyer details in Profile to enable purchasing immediately.
             </p>
           </div>
 
           <Link
-            to="/login"
+            to="/profile?setup=buyer"
             className="shrink-0 rounded-lg bg-green-800 px-6 py-3 font-semibold text-white hover:bg-green-900"
           >
-            Post a Request
+            Complete buyer details
           </Link>
-        </div>
-      </section>
-
-      {/* FARMER PROFILES */}
-      <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="mb-7">
-          <h2 className="text-2xl font-bold text-green-950 sm:text-3xl">
-            Meet Our Farmers
-          </h2>
-
-          <p className="mt-2 text-gray-600">
-            Discover farmers growing fresh produce across Kenya.
-          </p>
-        </div>
-
-        <div className="grid gap-5 md:grid-cols-3">
-          {farmerProfiles.map((farmer) => (
-            <div
-              key={farmer.id}
-              className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
-            >
-              <div className="flex h-32 items-center justify-center rounded-xl bg-green-50 text-lg font-semibold text-green-800">
-                {farmer.name}
-              </div>
-
-              <h3 className="mt-4 font-bold text-green-950">
-                {farmer.name}
-              </h3>
-
-              <p className="mt-1 text-sm text-gray-500">
-                {farmer.location}
-              </p>
-            </div>
-          ))}
         </div>
       </section>
 
@@ -581,14 +416,14 @@ export default function HomePage() {
               to="/register"
               className="rounded-lg bg-white px-7 py-3 font-semibold text-green-950 hover:bg-green-50"
             >
-              Join as a Farmer
+              Create your account
             </Link>
 
             <Link
               to="/register"
               className="rounded-lg border border-white px-7 py-3 font-semibold text-white hover:bg-green-900"
             >
-              Join as a Buyer
+              Explore AgriBridge
             </Link>
           </div>
         </div>

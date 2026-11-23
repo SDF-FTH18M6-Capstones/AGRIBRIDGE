@@ -81,7 +81,7 @@ def seed_database():
         key: _upsert(
             FarmerProfile,
             {"user_id": users[email].user_id},
-            {"farm_name": farm_name, "location": location, "description": description},
+            {"farm_name": farm_name, "location": location, "description": description, "verification_status": "approved"},
         )
         for key, email, farm_name, location, description in farmer_data
     }
@@ -155,19 +155,19 @@ def seed_database():
     order = seed_payment.order if seed_payment else None
     if order is None:
         order = Order(buyer_id=buyers["market"].buyer_id, farmer_id=farmers["peter"].farmer_id,
-                      total_amount=Decimal("1400.00"), order_status="delivered")
+                      total_amount=Decimal("1400.00"), order_status="completed")
         db.session.add(order)
         db.session.flush()
     _upsert(
         OrderItem,
         {"order_id": order.order_id, "product_id": products["Sweet Bananas"].product_id},
-        {"quantity": Decimal("20.000"), "unit_price": Decimal("70.00"),
+        {"product_name": "Sweet Bananas", "unit": "kg", "quantity": Decimal("20.000"), "unit_price": Decimal("70.00"),
          "subtotal": Decimal("1400.00")},
     )
     _upsert(
         Payment,
         {"transaction_reference": payment_ref},
-        {"order_id": order.order_id, "payment_method": "M-Pesa",
+        {"order_id": order.order_id, "payment_method": "paystack",
          "amount": Decimal("1400.00"), "payment_status": "paid",
          "paid_at": datetime.now(timezone.utc) - timedelta(days=1)},
     )

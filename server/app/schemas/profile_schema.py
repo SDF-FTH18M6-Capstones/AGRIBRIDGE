@@ -1,6 +1,18 @@
-from marshmallow import Schema, fields,validate
+from marshmallow import Schema, fields, validate, validates_schema, ValidationError
 
-class FarmerProfileSchema(Schema):
+class ProfileBase(Schema):
+    @validates_schema
+    def normalize_text(self, data, **kwargs):
+        for key in ("farm_name", "location"):
+            if key in data:
+                data[key] = data[key].strip()
+                if len(data[key]) < 2:
+                    raise ValidationError({key: ["Enter at least two non-space characters."]})
+        if isinstance(data.get("business_name"), str):
+            data["business_name"] = data["business_name"].strip() or None
+
+
+class FarmerProfileSchema(ProfileBase):
     farmer_id = fields.Int(dump_only=True)
     user_id = fields.Int(dump_only=True)
 
@@ -18,13 +30,13 @@ class FarmerProfileSchema(Schema):
         allow_none=True
     )
 
-class BuyerProfileSchema(Schema):
+class BuyerProfileSchema(ProfileBase):
     buyer_id = fields.Int(dump_only=True)
     user_id = fields.Int(dump_only=True)
 
     business_name = fields.Str(
         allow_none=True,
-        validate=validate.Length(max=150) 
+        validate=validate.Length(max=150)
     )
 
     buyer_type = fields.Str(

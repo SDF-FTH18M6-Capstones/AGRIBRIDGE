@@ -251,13 +251,7 @@ function AddProduct() {
     try {
       const categoryId = Number(form.category);
 
-      // Save farm details first.
-      await api.put("/profiles/me", {
-        profile_type: "farmer",
-        farm_name: form.farmName.trim(),
-        location: form.location.trim(),
-      });
-
+      // Listing publication uses the existing verified farm; profile changes are separate.
       const payload = {
         category_id: categoryId,
         product_name: form.name.trim(),
@@ -608,7 +602,7 @@ function AddProduct() {
               </h2>
 
               <p className="mt-1 text-sm text-gray-500">
-                Give buyers information about availability and farm location.
+                Choose availability. Your verified farm details are shown below; edit them from Profile if necessary.
               </p>
             </div>
 
@@ -646,6 +640,7 @@ function AddProduct() {
               <input
                 className={inputClass}
                 name="location"
+                readOnly
                 value={form.location}
                 onChange={handleChange}
                 placeholder="Enter your farm location or area"
@@ -657,6 +652,7 @@ function AddProduct() {
               <input
                 className={inputClass}
                 name="farmName"
+                readOnly
                 value={form.farmName}
                 onChange={handleChange}
                 placeholder="Enter your farm name"

@@ -9,7 +9,7 @@ const steps = [
   },
   {
     title: "3. Order & pay",
-    text: "Checkout → M-Pesa → delivery.",
+    text: "Place order → farmer confirms → Paystack test payment → confirm receipt.",
   },
 ];
 
@@ -21,7 +21,7 @@ function AboutPage() {
       </h1>
       <p className="mt-3 max-w-2xl text-gray-600">
         Buy fresh produce directly from local farmers. Discover products, place
-        an order and pay securely.
+        an order after completing buyer details, and pay after farmer confirmation.
       </p>
 
       <hr className="my-8 border-gray-200" />

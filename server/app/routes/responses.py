@@ -1,6 +1,8 @@
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from marshmallow import ValidationError
+from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 
 from app.extensions import db
 from app.models import User, BuyerRequest, RequestResponse
@@ -39,7 +41,9 @@ def create_response(request_id):
             }
         }), 403
 
-    buyer_request = db.session.get(BuyerRequest, request_id)
+    buyer_request = db.session.scalar(select(BuyerRequest).where(
+        BuyerRequest.request_id == request_id
+    ).with_for_update().execution_options(populate_existing=True))
 
     if buyer_request is None:
         return jsonify({
@@ -101,7 +105,11 @@ def create_response(request_id):
     )
 
     db.session.add(new_response)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"error": {"code": "RESPONSE_EXISTS", "message": "You have already responded to this request"}}), 409
 
     return jsonify({
         "message": "Response submitted successfully",
@@ -188,7 +196,10 @@ def update_response_status(response_id):
             }
         }), 404
 
-    buyer_request = farmer_response.request
+    buyer_request = db.session.scalar(select(BuyerRequest).where(
+        BuyerRequest.request_id == farmer_response.request_id
+    ).with_for_update().execution_options(populate_existing=True))
+    db.session.refresh(farmer_response)
 
     if buyer_request.buyer_id != user.buyer_profile.buyer_id:
         return jsonify({
@@ -238,6 +249,11 @@ def update_response_status(response_id):
 
     if status == "accepted":
         buyer_request.status = "matched"
+        db.session.execute(update(RequestResponse).where(
+            RequestResponse.request_id == buyer_request.request_id,
+            RequestResponse.response_id != farmer_response.response_id,
+            RequestResponse.status == "pending",
+        ).values(status="rejected"))
 
     db.session.commit()
 

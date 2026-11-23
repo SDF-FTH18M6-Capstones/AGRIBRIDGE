@@ -10,7 +10,7 @@ def test_valid_payment():
 
     data = {
         "order_id": 1,
-        "payment_method": "mpesa",
+        "payment_method": "paystack",
         "transaction_reference": "QWE123456",
         "amount": "5000.00"
     }
@@ -18,7 +18,7 @@ def test_valid_payment():
     result = schema.load(data)
 
     assert result["order_id"] == 1
-    assert result["payment_method"] == "mpesa"
+    assert result["payment_method"] == "paystack"
     assert result["amount"] == Decimal("5000.00")
 
 
@@ -26,7 +26,7 @@ def test_payment_requires_order_id():
     schema = PaymentSchema()
 
     data = {
-        "payment_method": "mpesa",
+        "payment_method": "paystack",
         "amount": "5000.00"
     }
 
@@ -52,7 +52,7 @@ def test_payment_rejects_negative_amount():
 
     data = {
         "order_id": 1,
-        "payment_method": "mpesa",
+        "payment_method": "paystack",
         "amount": "-100.00"
     }
 
@@ -65,7 +65,7 @@ def test_payment_rejects_zero_amount():
 
     data = {
         "order_id": 1,
-        "payment_method": "mpesa",
+        "payment_method": "paystack",
         "amount": "0"
     }
 
@@ -78,7 +78,7 @@ def test_payment_allows_missing_transaction_reference():
 
     data = {
         "order_id": 1,
-        "payment_method": "mpesa",
+        "payment_method": "paystack",
         "amount": "5000.00"
     }
 
@@ -93,7 +93,7 @@ def test_payment_id_is_dump_only():
     data = {
         "payment_id": 10,
         "order_id": 1,
-        "payment_method": "mpesa",
+        "payment_method": "paystack",
         "amount": "5000.00"
     }
 
@@ -106,7 +106,7 @@ def test_payment_status_is_dump_only():
 
     data = {
         "order_id": 1,
-        "payment_method": "mpesa",
+        "payment_method": "paystack",
         "amount": "5000.00",
         "payment_status": "completed"
     }

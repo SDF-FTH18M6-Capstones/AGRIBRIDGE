@@ -26,3 +26,18 @@ class Config:
         "PASSWORD_RESET_URL", "http://localhost:5173/reset-password"
     )
     PASSWORD_RESET_TOKEN_MINUTES = int(os.getenv("PASSWORD_RESET_TOKEN_MINUTES", "15"))
+
+    CORS_ORIGINS = [origin.strip() for origin in os.getenv(
+        "CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
+    ).split(",") if origin.strip()]
+    MAX_CONTENT_LENGTH = 6 * 1024 * 1024
+    PAYSTACK_SECRET_KEY = os.getenv("PAYSTACK_SECRET_KEY")
+    PAYSTACK_CALLBACK_URL = os.getenv("PAYSTACK_CALLBACK_URL", "http://localhost:5173/buyer/payments")
+    PAYSTACK_WEBHOOK_SECRET = os.getenv("PAYSTACK_WEBHOOK_SECRET")
+
+    CONFIRMATION_HOURS = 12
+    PAYMENT_HOURS = 2
+    WORKER_INTERVAL_SECONDS = int(os.getenv("WORKER_INTERVAL_SECONDS", "30"))
+    NOTIFICATION_EMAILS_ENABLED = os.getenv("NOTIFICATION_EMAILS_ENABLED", "true").lower() == "true"
+    PUBLIC_FRONTEND_URL = os.getenv("PUBLIC_FRONTEND_URL", "http://localhost:5173")
+    PAYMENTS_SANDBOX_ONLY = True

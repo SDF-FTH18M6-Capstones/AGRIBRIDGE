@@ -1,13 +1,15 @@
+import useAuth from "../../hooks/useAuth";
 
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import api from "../../services/api";
 
 const inputClass =
   "w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-green-700 focus:ring-2 focus:ring-green-100";
 
 export default function SignUpPage() {
-  const navigate = useNavigate();
+  const location = useLocation();
+  const { login } = useAuth();
 
   const [form, setForm] = useState({
     fullName: "",
@@ -15,7 +17,6 @@ export default function SignUpPage() {
     phone: "",
     password: "",
     confirmPassword: "",
-    role: "",
     acceptTerms: false,
   });
 
@@ -76,7 +77,7 @@ export default function SignUpPage() {
     }
 
     if (!form.phone.trim()) {
-      setError("Please enter your M-Pesa phone number.");
+      setError("Please enter your phone number.");
       return;
     }
 
@@ -90,11 +91,6 @@ export default function SignUpPage() {
       return;
     }
 
-    if (!form.role) {
-      setError("Please select whether you are a farmer or buyer.");
-      return;
-    }
-
     if (!form.acceptTerms) {
       setError("Please accept the Terms and Privacy Policy.");
       return;
@@ -103,21 +99,17 @@ export default function SignUpPage() {
     setIsSubmitting(true);
 
     try {
-      await api.post("/register", {
+      const response = await api.post("/register", {
         full_name: form.fullName.trim(),
         email: form.email.trim().toLowerCase(),
         phone_number: form.phone.replace(/\s+/g, ""),
         password: form.password,
-        role: form.role,
       });
 
-      navigate("/login", {
-        replace: true,
-        state: {
-          message: "Account created successfully. Please log in.",
-          email: form.email.trim().toLowerCase(),
-        },
-      });
+      login({ token: response.data.data.access_token, user: response.data.data.user });
+      const pending = location.state?.from;
+      if (pending && ["/cart", "/buyer/cart", "/checkout"].includes(pending.pathname)) sessionStorage.setItem("agribridge_pending_checkout", pending.pathname + (pending.search || ""));
+      window.location.assign("/marketplace");
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     } finally {
@@ -142,7 +134,7 @@ export default function SignUpPage() {
           </p>
 
           <p className="mt-2 text-sm text-gray-600">
-            Enter your details to get started.
+            Start with one account. Add buyer and farmer profiles whenever you are ready.
           </p>
         </div>
 
@@ -184,7 +176,7 @@ export default function SignUpPage() {
 
             <div>
               <label htmlFor="signup-phone" className="mb-2 block text-sm font-semibold">
-                Phone number (M-Pesa)
+                Phone number
               </label>
               <input
                 id="signup-phone"
@@ -197,24 +189,6 @@ export default function SignUpPage() {
                 value={form.phone}
                 onChange={handleChange}
               />
-            </div>
-
-            <div>
-              <label htmlFor="signup-role" className="mb-2 block text-sm font-semibold">
-                I want to register as
-              </label>
-              <select
-                id="signup-role"
-                name="role"
-                required
-                className={inputClass}
-                value={form.role}
-                onChange={handleChange}
-              >
-                <option value="">Choose your role</option>
-                <option value="farmer">Farmer</option>
-                <option value="buyer">Buyer</option>
-              </select>
             </div>
 
             <div>

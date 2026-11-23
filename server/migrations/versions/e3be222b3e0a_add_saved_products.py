@@ -22,7 +22,7 @@ def upgrade():
     sa.Column('saved_product_id', sa.Integer(), nullable=False),
     sa.Column('buyer_id', sa.Integer(), nullable=False),
     sa.Column('product_id', sa.Integer(), nullable=False),
-    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
     sa.ForeignKeyConstraint(['buyer_id'], ['buyer_profiles.buyer_id'], ),
     sa.ForeignKeyConstraint(['product_id'], ['products.product_id'], ),
     sa.PrimaryKeyConstraint('saved_product_id'),

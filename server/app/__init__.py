@@ -1,3 +1,4 @@
+from pathlib import Path
 from flask import Flask
 from flask_cors import CORS
 
@@ -20,6 +21,9 @@ from app.routes.dashboards import dashboards_bp
 from app.routes.saved_products import saved_products_bp
 
 from app.seed import register_seed_command
+from app.routes.portal import portal_bp
+from app.routes.v1 import v1_bp
+from app.services.worker import register_worker
 
 
 def create_app(test_config=None):
@@ -46,11 +50,11 @@ def create_app(test_config=None):
 
     CORS(
         app,
-        resources={r"/api/*": {"origins": ["http://localhost:5173"]}},
+        resources={r"/api/*": {"origins": app.config["CORS_ORIGINS"]}},
     )
 
     db.init_app(app)
-    migrate.init_app(app, db)
+    migrate.init_app(app, db, directory=str(Path(__file__).resolve().parent.parent / "migrations"))
     bcrypt.init_app(app)
     jwt.init_app(app)
 
@@ -68,6 +72,10 @@ def create_app(test_config=None):
     app.register_blueprint(dashboards_bp, url_prefix="/api/dashboards")
     app.register_blueprint(saved_products_bp, url_prefix="/api/saved-products")
 
+    app.register_blueprint(portal_bp, url_prefix="/api")
+
+    app.register_blueprint(v1_bp, url_prefix="/api")
+    register_worker(app)
     register_seed_command(app)
 
     return app

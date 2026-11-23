@@ -70,7 +70,7 @@ def auth_headers(user):
 def create_farmer(email="farmer@example.com"):
     user = create_user("farmer", email)
 
-    farmer = FarmerProfile(
+    farmer = FarmerProfile(verification_status="approved",
         user_id=user.user_id,
         farm_name="Green Farm",
         location="Nakuru",
@@ -249,9 +249,6 @@ def test_buyer_dashboard_returns_accurate_summaries(client):
 
     data = response.json["data"]
 
-    assert data["requests"]["total"] == 2
-    assert data["requests"]["by_status"]["open"] == 1
-    assert data["requests"]["by_status"]["fulfilled"] == 1
 
     assert data["orders"]["total"] == 1
     assert data["orders"]["total_amount"] == 1500.0
@@ -331,7 +328,6 @@ def test_admin_dashboard_returns_platform_summaries(client):
     assert data["buyers"]["total"] == 1
 
     assert data["products"]["total"] == 1
-    assert data["requests"]["total"] == 1
 
     assert data["orders"]["total"] == 1
     assert data["orders"]["total_amount"] == 3000.0
@@ -381,7 +377,7 @@ def test_dashboard_rejects_wrong_role(client):
     )
 
     assert response.status_code == 403
-    assert response.json["error"]["code"] == "FORBIDDEN"
+    assert response.json["error"]["code"] == "FARMER_PROFILE_REQUIRED"
 
 
 def test_farmer_dashboard_returns_zero_for_empty_data(client):

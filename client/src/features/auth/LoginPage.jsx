@@ -1,8 +1,9 @@
 
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import useAuth from "../../hooks/useAuth.js";
 import api from "../../services/api.js";
+import { safeNext } from "../v1/format";
 
 const inputClass =
   "w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-green-700 focus:ring-2 focus:ring-green-100";
@@ -18,6 +19,7 @@ export default function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
 
   function handleChange(event) {
@@ -71,21 +73,14 @@ export default function LoginPage() {
         );
       }
 
-      const role = String(user.role ?? "").trim().toLowerCase();
-
-      // Store authentication information in Auth Context.
       login({ token, user });
-
-      // Navigate according to the authenticated user's role.
-      if (role === "farmer") {
-        navigate("/dashboard", { replace: true });
-      } else if (role === "buyer") {
-        navigate("/buyer", { replace: true });
-      } else if (role === "admin") {
-        navigate("/admin", { replace: true });
-      } else {
-        navigate("/select-role", { replace: true });
-      }
+      const from = location.state?.from;
+      const destination = safeNext(new URLSearchParams(location.search).get("next") ||
+        (from ? from.pathname + (from.search || "") : null));
+      if (destination) { navigate(destination, { replace: true }); return; }
+      if (user.capabilities?.admin) navigate("/admin", { replace: true });
+      else if (user.capabilities?.["field-officer"]) navigate("/field-officer", { replace: true });
+      else window.location.assign("/marketplace");
     } catch (err) {
       setError(
         err.message || "Login failed. Please check your details and try again."
@@ -215,6 +210,7 @@ export default function LoginPage() {
               No account?{" "}
               <Link
                 to="/register"
+                state={location.state}
                 className="font-semibold text-green-800 hover:underline"
               >
                 Create account

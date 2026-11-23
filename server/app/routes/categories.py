@@ -39,7 +39,8 @@ def create_category():
 
 
     if (
-        user.role.role_name != "admin"
+        user.role is None
+        or user.role.role_name != "admin"
         or user.admin_profile is None
         or user.admin_profile.status != "active"
     ):

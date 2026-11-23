@@ -23,29 +23,11 @@ EXPECTED_TEST_HOST = (
 )
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def app():
-    load_dotenv(".env")
-
-    url = os.environ.get("TEST_DATABASE_URL")
-    if not url:
-        pytest.fail("TEST_DATABASE_URL is required")
-
-    test_app = create_app({
-        "TESTING": True,
-        "SQLALCHEMY_DATABASE_URI": url,
-    })
-
-    with test_app.app_context():
-        if (
-            db.engine.url.host != EXPECTED_TEST_HOST
-            or db.engine.url.database != "agribridge_db"
-        ):
-            pytest.fail("Refusing to use an unexpected database")
-
+    from tests.database import isolated_app
+    with isolated_app() as test_app:
         yield test_app
-        db.session.remove()
-
 
 @pytest.fixture
 def test_data(app):

@@ -8,6 +8,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.extensions import db
 from app.models import FarmerVerification, User
+from app.services.commerce import notify, notify_admins, audit
 from app.schemas.farmer_verification_schema import FarmerVerificationSchema
 
 
@@ -132,6 +133,10 @@ def create_farmer_verification():
         )
 
         db.session.add(verification)
+        db.session.flush()
+        notify_admins("Verification submitted", f"Farmer #{farmer_id} has requested verification.")
+        notify(user.user_id, "Verification submitted", "Your farm is awaiting assignment to an inspection officer.")
+        audit("verification", verification.verification_id, "submitted_for_assignment", user.user_id)
         farmer.verification_status = "pending"
         db.session.commit()
 
@@ -395,6 +400,8 @@ def validate_verification_update(payload):
                 400,
             )
 
+    if action == "review" and payload.get("decision") == "rejected" and not payload.get("remarks"):
+        return None, verification_error("REASON_REQUIRED", "Provide a rejection reason so the farmer can correct and reapply", 400)
     return payload, None
 
 
@@ -567,6 +574,15 @@ def update_farmer_verification(verification_id):
 
             farmer.verification_status = decision
 
+        audit("verification", verification_id, action, user_id, **{key: value for key, value in payload.items() if key != "action"})
+        if action == "assign":
+            notify(officer.user_id, "Inspection assigned", f"Verification #{verification_id} is ready for your inspection.", "/field-officer")
+            notify(verification.farmer.user_id, "Inspection assigned", "An officer has been assigned to your farm verification.")
+        elif action == "submit":
+            notify_admins("Inspection ready for review", f"Verification #{verification_id} has a submitted inspection report.")
+        else:
+            notify(verification.farmer.user_id, "Farmer verification "+verification.status,
+                   payload.get("remarks") or "Your farmer dashboard is now available.", "/profile")
         db.session.commit()
 
         return jsonify({
