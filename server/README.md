@@ -16,8 +16,8 @@ python run.py
 ```
 
 `db upgrade` changes the database selected by `DATABASE_URL`. Back up the intended
-Neon branch before applying it. The current revision is `c34f6a0db003` (Paystack checkout), following
-`b23e5f9ca002` (V1 lifecycle) and `a12d4e8b9001`; its code was tested on disposable SQLite and PostgreSQL databases.
+Neon branch before applying it. The current revision is `e56b8c2fd005` (database uploads), following `d45a7b1ec004` (locations, sessions and media), following
+`c34f6a0db003` (Paystack), `b23e5f9ca002` (V1 lifecycle) and `a12d4e8b9001`; its code was tested on disposable SQLite and PostgreSQL databases.
 It has not been applied automatically to your Neon data.
 
 If an old database was created using `create_all()` without Alembic tracking,
@@ -182,3 +182,12 @@ The previous requests/offers API is retained for compatibility but removed from 
 navigation. Delivery/collection management is deferred. No new image assets were
 introduced; existing project imagery remains in use, with placeholders on product
 image failure. Browser visual verification depends on a connected browser session.
+
+## Topics 1–4 review branch
+
+See [the local setup and acceptance guide](../docs/TOPICS_1_4_REVIEW.md) for structured
+locations, mandatory farm pins, independent tab sessions, stronger passwords and
+database-backed device/camera uploads. Apply revision `e56b8c2fd005` to your chosen review
+database. New images and PDFs are stored in PostgreSQL/Neon; Cloudinary credentials are only needed to access legacy Cloudinary files.
+Evidence is reviewed manually by the assigned officer and administrator. The worker must run for removed-file cleanup and order/payment/email processing. No deployment
+configuration or shared Neon migration is performed by this implementation.

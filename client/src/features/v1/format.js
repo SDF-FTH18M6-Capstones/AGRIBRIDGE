@@ -1,6 +1,6 @@
-export const button = 'inline-flex items-center justify-center rounded-lg bg-green-800 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-green-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 disabled:cursor-not-allowed disabled:opacity-50';
-export const secondary = 'inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-green-900 hover:bg-green-50 disabled:opacity-50';
-export const input = 'w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-900 focus:outline-green-700';
+export const button = 'btn btn-primary disabled:cursor-not-allowed disabled:opacity-50';
+export const secondary = 'btn btn-secondary disabled:cursor-not-allowed disabled:opacity-50';
+export const input = 'w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-gray-900 focus:outline-green-700';
 export const money = value => `KSh ${Number(value || 0).toLocaleString('en-KE', { minimumFractionDigits: 2 })}`;
 export const when = value => value ? new Date(value).toLocaleString('en-KE', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
 export const labels = { pending: 'Awaiting farmer confirmation', confirmed: 'Awaiting payment', processing: 'Payment processing', paid: 'Paid · awaiting receipt confirmation', completed: 'Completed', cancelled: 'Cancelled', rejected: 'Rejected', expired: 'Expired', suspended: 'Suspended' };

@@ -1,3 +1,4 @@
+from tests.verification_evidence import verification_payload, inspection_payload
 """Integration tests for the Farmer Verification API."""
 
 import os
@@ -28,7 +29,7 @@ def client(app):
 def test_verification_creation_requires_authentication(client):
     response = client.post(
         "/api/farmer-verifications",
-        json={"farm_location": "Nakuru County"},
+        json=verification_payload({"farm_location": "Nakuru County"}, {}),
     )
 
     assert response.status_code == 401
@@ -120,7 +121,7 @@ def test_farmer_creates_pending_verification(
 
     response = client.post(
         "/api/farmer-verifications",
-        json={"farm_location": "Nakuru County"},
+        json=verification_payload({"farm_location": "Nakuru County"}, {"Authorization": f"Bearer {token}"}),
         headers={"Authorization": f"Bearer {token}"},
     )
 
@@ -161,7 +162,7 @@ def test_duplicate_active_verification_is_rejected(
 
     first = client.post(
         "/api/farmer-verifications",
-        json=payload,
+        json=verification_payload(payload, headers),
         headers=headers,
     )
 
@@ -169,7 +170,7 @@ def test_duplicate_active_verification_is_rejected(
 
     second = client.post(
         "/api/farmer-verifications",
-        json=payload,
+        json=verification_payload(payload, headers),
         headers=headers,
     )
 
@@ -211,10 +212,10 @@ def test_farmer_cannot_submit_restricted_fields(
 
     response = client.post(
         "/api/farmer-verifications",
-        json={
+        json=verification_payload({
             "farm_location": "Nakuru County",
             restricted_field: value,
-        },
+        }, {"Authorization": f"Bearer {token}"}),
         headers={"Authorization": f"Bearer {token}"},
     )
 
@@ -275,7 +276,7 @@ def test_farmer_can_retrieve_own_verification(
 
     created = client.post(
         "/api/farmer-verifications",
-        json={"farm_location": "Nakuru County"},
+        json=verification_payload({"farm_location": "Nakuru County"}, headers),
         headers=headers,
     )
 
@@ -346,7 +347,9 @@ def test_farmer_cannot_view_another_farmers_verification(
     try:
         created = client.post(
             "/api/farmer-verifications",
-            json={"farm_location": "Nakuru County"},
+            json=verification_payload({"farm_location": "Nakuru County"}, {
+                "Authorization": f"Bearer {owner_token}"
+            }),
             headers={
                 "Authorization": f"Bearer {owner_token}"
             },
@@ -503,7 +506,7 @@ def test_active_admin_can_list_verifications(
 
     created = client.post(
         "/api/farmer-verifications",
-        json={"farm_location": "Nakuru County"},
+        json=verification_payload({"farm_location": "Nakuru County"}, {"Authorization": f"Bearer {farmer_token}"}),
         headers={"Authorization": f"Bearer {farmer_token}"},
     )
 
@@ -695,7 +698,7 @@ def test_complete_farmer_approval_workflow(
 
     created = client.post(
         "/api/farmer-verifications",
-        json={"farm_location": "Nakuru County"},
+        json=verification_payload({"farm_location": "Nakuru County"}, auth(farmer_token)),
         headers=auth(farmer_token),
     )
     assert created.status_code == 201, created.get_json()
@@ -705,10 +708,10 @@ def test_complete_farmer_approval_workflow(
 
     assigned = client.patch(
         url,
-        json={
+        json=inspection_payload({
             "action": "assign",
             "field_officer_id": verification_officer["officer_id"],
-        },
+        }, auth(admin_token), url),
         headers=auth(admin_token),
     )
     assert assigned.status_code == 200, assigned.get_json()
@@ -716,11 +719,11 @@ def test_complete_farmer_approval_workflow(
 
     submitted = client.patch(
         url,
-        json={
+        json=inspection_payload({
             "action": "submit",
             "recommendation": "approve",
             "remarks": "Farm inspected and verified.",
-        },
+        }, auth(officer_token), url),
         headers=auth(officer_token),
     )
     assert submitted.status_code == 200, submitted.get_json()
@@ -728,10 +731,10 @@ def test_complete_farmer_approval_workflow(
 
     approved = client.patch(
         url,
-        json={
+        json=inspection_payload({
             "action": "review",
             "decision": "approved",
-        },
+        }, auth(admin_token), url),
         headers=auth(admin_token),
     )
     assert approved.status_code == 200, approved.get_json()
@@ -778,7 +781,7 @@ def test_farmer_cannot_perform_admin_actions(
 
     created = client.post(
         "/api/farmer-verifications",
-        json={"farm_location": "Nakuru County"},
+        json=verification_payload({"farm_location": "Nakuru County"}, headers),
         headers=headers,
     )
 
@@ -788,7 +791,7 @@ def test_farmer_cannot_perform_admin_actions(
 
     response = client.patch(
         f"/api/farmer-verifications/{verification_id}",
-        json=payload,
+        json=inspection_payload(payload, headers, f"/api/farmer-verifications/{verification_id}"),
         headers=headers,
     )
 
@@ -833,7 +836,7 @@ def test_complete_farmer_rejection_workflow(
 
     created = client.post(
         "/api/farmer-verifications",
-        json={"farm_location": "Nakuru County"},
+        json=verification_payload({"farm_location": "Nakuru County"}, headers("farmer")),
         headers=headers("farmer"),
     )
     assert created.status_code == 201, created.get_json()
@@ -843,21 +846,21 @@ def test_complete_farmer_rejection_workflow(
 
     assigned = client.patch(
         url,
-        json={
+        json=inspection_payload({
             "action": "assign",
             "field_officer_id": verification_officer["officer_id"],
-        },
+        }, headers("admin"), url),
         headers=headers("admin"),
     )
     assert assigned.status_code == 200, assigned.get_json()
 
     submitted = client.patch(
         url,
-        json={
+        json=inspection_payload({
             "action": "submit",
             "recommendation": "reject",
             "remarks": "Farm inspection requirements not met.",
-        },
+        }, headers("officer"), url),
         headers=headers("officer"),
     )
     assert submitted.status_code == 200, submitted.get_json()
@@ -865,11 +868,11 @@ def test_complete_farmer_rejection_workflow(
 
     rejected = client.patch(
         url,
-        json={
+        json=inspection_payload({
             "action": "review",
             "decision": "rejected",
             "remarks": "Farm requirements were not met; please correct the inspection issues.",
-        },
+        }, headers("admin"), url),
         headers=headers("admin"),
     )
     assert rejected.status_code == 200, rejected.get_json()
@@ -918,7 +921,7 @@ def test_complete_farmer_rejection_workflow(
 
     created = client.post(
         "/api/farmer-verifications",
-        json={"farm_location": "Nakuru County"},
+        json=verification_payload({"farm_location": "Nakuru County"}, headers("farmer")),
         headers=headers("farmer"),
     )
     assert created.status_code == 201, created.get_json()
@@ -928,21 +931,21 @@ def test_complete_farmer_rejection_workflow(
 
     assigned = client.patch(
         url,
-        json={
+        json=inspection_payload({
             "action": "assign",
             "field_officer_id": verification_officer["officer_id"],
-        },
+        }, headers("admin"), url),
         headers=headers("admin"),
     )
     assert assigned.status_code == 200, assigned.get_json()
 
     submitted = client.patch(
         url,
-        json={
+        json=inspection_payload({
             "action": "submit",
             "recommendation": "reject",
             "remarks": "Farm inspection requirements not met.",
-        },
+        }, headers("officer"), url),
         headers=headers("officer"),
     )
     assert submitted.status_code == 200, submitted.get_json()
@@ -950,11 +953,11 @@ def test_complete_farmer_rejection_workflow(
 
     rejected = client.patch(
         url,
-        json={
+        json=inspection_payload({
             "action": "review",
             "decision": "rejected",
             "remarks": "Farm requirements were not met; please correct the inspection issues.",
-        },
+        }, headers("admin"), url),
         headers=headers("admin"),
     )
     assert rejected.status_code == 200, rejected.get_json()
@@ -1001,7 +1004,7 @@ def test_suspended_officer_cannot_submit_inspection(
 
     created = client.post(
         "/api/farmer-verifications",
-        json={"farm_location": "Nakuru County"},
+        json=verification_payload({"farm_location": "Nakuru County"}, headers(farmer_token)),
         headers=headers(farmer_token),
     )
     assert created.status_code == 201, created.get_json()
@@ -1011,10 +1014,10 @@ def test_suspended_officer_cannot_submit_inspection(
 
     assigned = client.patch(
         url,
-        json={
+        json=inspection_payload({
             "action": "assign",
             "field_officer_id": verification_officer["officer_id"],
-        },
+        }, headers(admin_token), url),
         headers=headers(admin_token),
     )
     assert assigned.status_code == 200, assigned.get_json()
@@ -1029,11 +1032,11 @@ def test_suspended_officer_cannot_submit_inspection(
 
     response = client.patch(
         url,
-        json={
+        json=inspection_payload({
             "action": "submit",
             "recommendation": "approve",
             "remarks": "Inspection completed.",
-        },
+        }, headers(officer_token), url),
         headers=headers(officer_token),
     )
 
@@ -1068,7 +1071,7 @@ def test_admin_cannot_approve_pending_verification(
 
     created = client.post(
         "/api/farmer-verifications",
-        json={"farm_location": "Nakuru County"},
+        json=verification_payload({"farm_location": "Nakuru County"}, {"Authorization": f"Bearer {farmer_token}"}),
         headers={"Authorization": f"Bearer {farmer_token}"},
     )
     assert created.status_code == 201, created.get_json()
@@ -1077,10 +1080,10 @@ def test_admin_cannot_approve_pending_verification(
 
     response = client.patch(
         f"/api/farmer-verifications/{verification_id}",
-        json={
+        json=inspection_payload({
             "action": "review",
             "decision": "approved",
-        },
+        }, {"Authorization": f"Bearer {admin_token}"}, f"/api/farmer-verifications/{verification_id}"),
         headers={"Authorization": f"Bearer {admin_token}"},
     )
 
@@ -1132,7 +1135,7 @@ def test_completed_verification_cannot_be_reviewed_again(
 
     created = client.post(
         "/api/farmer-verifications",
-        json={"farm_location": "Nakuru County"},
+        json=verification_payload({"farm_location": "Nakuru County"}, headers("farmer")),
         headers=headers("farmer"),
     )
     assert created.status_code == 201, created.get_json()
@@ -1142,39 +1145,39 @@ def test_completed_verification_cannot_be_reviewed_again(
 
     assigned = client.patch(
         url,
-        json={
+        json=inspection_payload({
             "action": "assign",
             "field_officer_id": verification_officer["officer_id"],
-        },
+        }, headers("admin"), url),
         headers=headers("admin"),
     )
     assert assigned.status_code == 200, assigned.get_json()
 
     submitted = client.patch(
         url,
-        json={
+        json=inspection_payload({
             "action": "submit",
             "recommendation": "approve",
             "remarks": "Inspection requirements met.",
-        },
+        }, headers("officer"), url),
         headers=headers("officer"),
     )
     assert submitted.status_code == 200, submitted.get_json()
 
     approved = client.patch(
         url,
-        json={"action": "review", "decision": "approved"},
+        json=inspection_payload({"action": "review", "decision": "approved"}, headers("admin"), url),
         headers=headers("admin"),
     )
     assert approved.status_code == 200, approved.get_json()
 
     repeated = client.patch(
         url,
-        json={
+        json=inspection_payload({
             "action": "review",
             "decision": second_decision,
             "remarks": "This verification has already been reviewed.",
-        },
+        }, headers("admin"), url),
         headers=headers("admin"),
     )
 
@@ -1217,7 +1220,7 @@ def test_approved_farmer_cannot_reapply(client, app, farmer_data):
 
     response = client.post(
         "/api/farmer-verifications",
-        json={"farm_location": "Nakuru County"},
+        json=verification_payload({"farm_location": "Nakuru County"}, {"Authorization": f"Bearer {token}"}),
         headers={"Authorization": f"Bearer {token}"},
     )
 
@@ -1263,7 +1266,7 @@ def test_rejected_farmer_can_reapply(client, app, farmer_data):
 
     response = client.post(
         "/api/farmer-verifications",
-        json={"farm_location": "Updated Farm Location"},
+        json=verification_payload({"farm_location": "Updated Farm Location"}, {"Authorization": f"Bearer {token}"}),
         headers={"Authorization": f"Bearer {token}"},
     )
 
@@ -1301,7 +1304,7 @@ def test_rejected_farmer_can_reapply(client, app, farmer_data):
                 "remarks": "Inspection completed",
                 "evidence_url": {"invalid": "object"},
             },
-            "INVALID_EVIDENCE_URL",
+            "INVALID_FIELDS",
         ),
         (
             {
@@ -1310,7 +1313,7 @@ def test_rejected_farmer_can_reapply(client, app, farmer_data):
                 "remarks": "Inspection completed",
                 "evidence_url": "x" * 2049,
             },
-            "INVALID_EVIDENCE_URL",
+            "INVALID_FIELDS",
         ),
         (
             {
@@ -1347,7 +1350,7 @@ def test_verification_update_rejects_malformed_fields(
 
     created = client.post(
         "/api/farmer-verifications",
-        json={"farm_location": "Nakuru County"},
+        json=verification_payload({"farm_location": "Nakuru County"}, headers),
         headers=headers,
     )
 
@@ -1356,7 +1359,7 @@ def test_verification_update_rejects_malformed_fields(
 
     response = client.patch(
         f"/api/farmer-verifications/{verification_id}",
-        json=payload,
+        json=inspection_payload(payload, headers, f"/api/farmer-verifications/{verification_id}"),
         headers=headers,
     )
 

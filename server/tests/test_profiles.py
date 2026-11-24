@@ -198,7 +198,7 @@ def test_create_buyer_profile(client, app, buyer_token, buyer_user):
             "profile_type": "buyer",
             "business_name": "New Produce Business",
             "buyer_type": "restaurant",
-            "location": "Nairobi"
+            "location": "Nairobi", "county_code":"047", "subcounty_code":"04701", "town":"Nairobi"
         }
     )
 
@@ -217,7 +217,7 @@ def test_create_buyer_profile_without_business_name(client, buyer_token):
         json={
             "profile_type": "buyer",
             "buyer_type": "individual",
-            "location": "Thika"
+            "location": "Thika", "county_code":"022", "subcounty_code":"02201", "town":"Thika"
         }
     )
 

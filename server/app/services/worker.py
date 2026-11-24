@@ -73,12 +73,14 @@ def reconcile_pending(limit=20):
 
 
 def run_once():
+    from app.services.media import purge_removed_assets
+    purged = purge_removed_assets()
     reconciled = reconcile_pending()
     expired = expire_due_orders()
     emailed = deliver_emails()
     # Close read-only transactions too; an idle worker must not pin a DB snapshot.
     db.session.commit()
-    return {'reconciled': reconciled, 'expired': expired, 'emailed': emailed}
+    return {'purged': purged, 'reconciled': reconciled, 'expired': expired, 'emailed': emailed}
 
 
 def register_worker(app):

@@ -5,7 +5,7 @@ import FarmerSidebar from "./components/FarmerSidebar.jsx";
 
 function FarmerLayout() {
   return (
-    <div className="min-h-screen bg-[#f4f7f3]">
+    <div className="dashboard-shell min-h-screen bg-white">
       <div className="flex min-h-screen flex-col md:flex-row">
         <FarmerSidebar />
 

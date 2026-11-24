@@ -1,4 +1,4 @@
-from marshmallow import Schema, fields, validate
+from marshmallow import Schema, fields, validate, validates, ValidationError
 
 class FieldOfficerSchema(Schema):
 
@@ -25,3 +25,10 @@ class FieldOfficerSchema(Schema):
         validate=validate.Length(min=2, max=50)
     )
     status = fields.Str(dump_only=True)
+
+    @validates('password')
+    def strong_password(self, value, **kwargs):
+        from app.services.passwords import password_errors
+        errors = password_errors(value)
+        if errors:
+            raise ValidationError(errors)

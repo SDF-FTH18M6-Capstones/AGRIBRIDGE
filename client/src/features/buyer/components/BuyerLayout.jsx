@@ -16,7 +16,7 @@ const BuyerLayout = () => {
   };
 
   return (
-    <div className="flex min-h-screen flex-col md:flex-row bg-[#f8f9fa]">
+    <div className="flex dashboard-shell min-h-screen flex-col md:flex-row bg-white">
       <BuyerSidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}

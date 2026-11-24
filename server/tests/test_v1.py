@@ -15,7 +15,7 @@ def ctx():
     app = create_app({'TESTING': True, 'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:',
                       'SECRET_KEY': 'x'*40, 'JWT_SECRET_KEY': 'y'*40, 'MAIL_SERVER': None})
     with app.app_context():
-        db.create_all(); client = app.test_client(); users = {}
+        db.create_all(); client = app.test_client(); client.environ_base["HTTP_X_TAB_ID"] = "v1-test-tab"; users = {}
         for name in ['buyer', 'farmer', 'secondfarmer', 'admin', 'officer', 'outsider']:
             user = User(full_name=name.title(), email=name+'@example.com', password_hash='unused')
             db.session.add(user); db.session.flush(); users[name] = user
@@ -65,7 +65,7 @@ def verified_result(attempt, **extra):
 
 def test_registration_is_general_with_automatic_session(ctx):
     _, client, _, _, _ = ctx
-    r = client.post('/api/register', json={'full_name': 'New Person', 'email': 'new@example.com', 'password': 'Password123!', 'role': 'farmer'})
+    r = client.post('/api/register', json={'full_name': 'New Person', 'email': 'new@example.com', 'password': 'GrowingHarvest123!', 'role': 'farmer'})
     assert r.status_code == 201
     data = r.json['data']
     assert data['user']['role'] is None
@@ -75,7 +75,7 @@ def test_registration_is_general_with_automatic_session(ctx):
 
 def test_dual_profiles_and_approval_gate(ctx):
     _, client, users, headers, _ = ctx
-    r = client.put('/api/profiles/me', headers=headers['outsider'], json={'profile_type': 'buyer', 'buyer_type': 'individual', 'location': 'Nairobi'})
+    r = client.put('/api/profiles/me', headers=headers['outsider'], json={'profile_type': 'buyer', 'buyer_type': 'individual', 'location': 'Nairobi', 'county_code':'047', 'subcounty_code':'04701', 'town':'Nairobi'})
     assert r.status_code == 200 and r.json['user']['capabilities']['buyer']
     r = client.put('/api/profiles/me', headers=headers['outsider'], json={'profile_type': 'farmer', 'farm_name': 'New Farm', 'location': 'Nakuru'})
     assert r.status_code == 200

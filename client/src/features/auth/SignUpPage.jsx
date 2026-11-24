@@ -1,3 +1,6 @@
+import { Spinner } from '../../components/ui/Loading';
+import PasswordChecklist from '../security/PasswordChecklist';
+import { strongPassword } from '../security/passwordPolicy';
 import useAuth from "../../hooks/useAuth";
 
 import { useState } from "react";
@@ -5,7 +8,7 @@ import { Link, useLocation } from "react-router-dom";
 import api from "../../services/api";
 
 const inputClass =
-  "w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-green-700 focus:ring-2 focus:ring-green-100";
+  "w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-green-700 focus:ring-2 focus:ring-green-100";
 
 export default function SignUpPage() {
   const location = useLocation();
@@ -81,8 +84,8 @@ export default function SignUpPage() {
       return;
     }
 
-    if (form.password.length < 8) {
-      setError("Password must contain at least 8 characters.");
+    if (!strongPassword(form.password)) {
+      setError("Meet all the password requirements below.");
       return;
     }
 
@@ -104,9 +107,10 @@ export default function SignUpPage() {
         email: form.email.trim().toLowerCase(),
         phone_number: form.phone.replace(/\s+/g, ""),
         password: form.password,
+        confirm_password: form.confirmPassword,
       });
 
-      login({ token: response.data.data.access_token, user: response.data.data.user });
+      login({ token: response.data.data.access_token, ...response.data.data });
       const pending = location.state?.from;
       if (pending && ["/cart", "/buyer/cart", "/checkout"].includes(pending.pathname)) sessionStorage.setItem("agribridge_pending_checkout", pending.pathname + (pending.search || ""));
       window.location.assign("/marketplace");
@@ -118,12 +122,10 @@ export default function SignUpPage() {
   }
 
   return (
-    <main className="flex min-h-[75vh] items-center justify-center bg-[#f7faf6] px-4 py-12">
+    <main className="flex min-h-[75vh] items-center justify-center bg-white px-4 py-12">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <Link to="/" className="text-3xl font-extrabold text-green-800">
-            AgriBridge
-          </Link>
+          <Link to="/" className="text-3xl font-extrabold text-green-800"><img src="/assets/brand/logo.webp" alt="AgriBridge" width="132" height="88" className="inline-block h-20 w-32 object-contain" /></Link>
 
           <h1 className="mt-6 text-3xl font-bold text-green-950">
             Create your account
@@ -200,10 +202,10 @@ export default function SignUpPage() {
                   id="signup-password"
                   name="password"
                   type={showPassword ? "text" : "password"}
-                  minLength={8}
+                  minLength={12}
                   required
                   autoComplete="new-password"
-                  placeholder="Minimum 8 characters"
+                  placeholder="At least 12 mixed characters"
                   className={`${inputClass} pr-20`}
                   value={form.password}
                   onChange={handleChange}
@@ -217,6 +219,8 @@ export default function SignUpPage() {
                 </button>
               </div>
             </div>
+
+            <PasswordChecklist value={form.password} />
 
             <div>
               <label htmlFor="signup-confirm" className="mb-2 block text-sm font-semibold">
@@ -261,7 +265,7 @@ export default function SignUpPage() {
               disabled={isSubmitting}
               className="w-full rounded-lg bg-green-800 px-5 py-3 font-semibold text-white transition hover:bg-green-900 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isSubmitting ? "Creating account..." : "Create account"}
+              {isSubmitting ? <Spinner label="Creating account" /> : "Create account"}
             </button>
           </form>
 

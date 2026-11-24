@@ -11,7 +11,7 @@ def test_valid_field_officer():
         "full_name": "John Kamau",
         "email": "john@example.com",
         "phone_number": "0712345678",
-        "password": "Password123",
+        "password": "HarvestFields2026!",
         "staff_number": "FO-001"
     }
 
@@ -29,7 +29,7 @@ def test_staff_number_is_required():
         "full_name": "John Kamau",
         "email": "john@example.com",
         "phone_number": "0712345678",
-        "password": "Password123"
+        "password": "HarvestFields2026!"
     }
 
     with pytest.raises(ValidationError):
@@ -43,7 +43,7 @@ def test_invalid_email():
         "full_name": "John Kamau",
         "email": "invalid-email",
         "phone_number": "0712345678",
-        "password": "Password123",
+        "password": "HarvestFields2026!",
         "staff_number": "FO-001"
     }
 
@@ -58,7 +58,7 @@ def test_invalid_phone_number():
         "full_name": "John Kamau",
         "email": "john@example.com",
         "phone_number": "12345",
-        "password": "Password123",
+        "password": "HarvestFields2026!",
         "staff_number": "FO-001"
     }
 
@@ -89,7 +89,7 @@ def test_field_officer_id_is_dump_only():
         "full_name": "John Kamau",
         "email": "john@example.com",
         "phone_number": "0712345678",
-        "password": "Password123",
+        "password": "HarvestFields2026!",
         "staff_number": "FO-001"
     }
 
@@ -104,7 +104,7 @@ def test_status_is_dump_only():
         "full_name": "John Kamau",
         "email": "john@example.com",
         "phone_number": "0712345678",
-        "password": "Password123",
+        "password": "HarvestFields2026!",
         "staff_number": "FO-001",
         "status": "inactive"
     }

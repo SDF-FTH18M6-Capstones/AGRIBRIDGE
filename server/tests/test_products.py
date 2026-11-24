@@ -587,17 +587,24 @@ def test_upload_and_delete_product_image(
     product_id = sample_products["product1_id"]
 
 
-    response = client.post(
-        f"/api/products/{product_id}/images",
-        headers=auth_headers,
-        data={
-            "image": (
-                create_test_jpeg(),
-                "tomato.jpg",
-                "image/jpeg"
-            )
-        }
-    )
+    from unittest.mock import patch
+    from app.models import MediaAsset
+    app.config.update(CLOUDINARY_CLOUD_NAME='test',CLOUDINARY_API_KEY='test',CLOUDINARY_API_SECRET='test')
+    def uploaded(file,**options):
+        assert 'moderation' not in options
+        return {'public_id':options['public_id'],'asset_id':'test-cloud-id','type':'authenticated'}
+    with patch('cloudinary.uploader.upload',side_effect=uploaded):
+        response = client.post(
+            f"/api/products/{product_id}/images",
+            headers=auth_headers,
+            data={
+                "image": (
+                    create_test_jpeg(),
+                    "tomato.jpg",
+                    "image/jpeg"
+                )
+            }
+        )
 
     assert response.status_code == 201
     assert response.json["success"] is True
@@ -616,7 +623,8 @@ def test_upload_and_delete_product_image(
     )
 
 
-    assert os.path.isfile(image_path)
+    assert not os.path.isfile(image_path)
+    assert MediaAsset.query.filter_by(product_id=product_id).one().scan_status == "not_scanned"
 
 
     with app.app_context():
@@ -635,7 +643,7 @@ def test_upload_and_delete_product_image(
 
 
     assert not os.path.isfile(image_path)
-
+    assert MediaAsset.query.filter_by(product_id=product_id).one().deleted_at is not None
 
     with app.app_context():
         deleted_image = db.session.get(ProductImage, image_id)

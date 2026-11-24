@@ -24,7 +24,7 @@ function FarmerHeader() {
           Farmer Portal
         </p>
 
-        <h2 className="text-xl font-bold text-[#174832]">
+        <h2 className="text-xl font-bold text-green-950">
           Welcome to AgriBridge
         </h2>
       </div>
@@ -32,14 +32,14 @@ function FarmerHeader() {
       <nav className="flex flex-wrap items-center gap-3">
         <Link
           to={user.capabilities?.buyer ? "/buyer" : "/profile?setup=buyer"}
-          className="inline-flex items-center justify-center rounded-lg border border-[#174832] bg-white px-4 py-2 text-sm font-semibold text-[#174832] hover:bg-[#174832] hover:text-white"
+          className="inline-flex items-center justify-center rounded-xl border border-green-200 bg-white px-4 py-2 text-sm font-semibold text-green-950 hover:bg-green-800 hover:text-white"
         >
           {user.capabilities?.buyer ? "Buyer dashboard" : "Buyer setup"}
         </Link>
 
         <Link
           to="/farmer/notifications"
-          className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-green-50 hover:text-[#159447]"
+          className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-green-50 hover:text-green-700"
         >
           <FontAwesomeIcon icon={faBell} className="h-4 w-4" />
           Notifications
@@ -47,7 +47,7 @@ function FarmerHeader() {
 
         <Link
           to="/profile"
-          className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-green-50 hover:text-[#159447]"
+          className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-green-50 hover:text-green-700"
         >
           <FontAwesomeIcon icon={faUser} className="h-4 w-4" />
           Profile

@@ -12,7 +12,7 @@ const navigation = [
 
 export default function BuyerLayout() {
   return (
-    <div className="min-h-screen bg-[#f7faf6] lg:flex">
+    <div className="min-h-screen bg-white lg:flex">
       {/* Buyer sidebar */}
       <aside className="w-full bg-green-950 text-white lg:min-h-screen lg:w-64 lg:shrink-0">
         <div className="border-b border-green-800 px-6 py-6">

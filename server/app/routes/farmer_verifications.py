@@ -34,7 +34,11 @@ def verification_error(code, message, status, details=None):
 
 def serialize_verification(verification):
     """Serialize a farmer verification using the existing schema."""
-    return verification_schema.dump(verification)
+    from app.services.evidence import documents
+    data=verification_schema.dump(verification)
+    data.update(location_snapshot=verification.location_snapshot,location_matches=verification.location_matches,
+                officer_remarks=verification.officer_remarks,documents=documents(verification.verification_id))
+    return data
 
 
 @farmer_verifications_bp.post("")
@@ -50,13 +54,13 @@ def create_farmer_verification():
             400,
         )
 
-    allowed_fields = {"farm_location"}
+    allowed_fields = {"farm_location", "asset_ids"}
     unexpected = set(payload) - allowed_fields
 
     if unexpected:
         return verification_error(
             "INVALID_FIELDS",
-            "Only farm_location may be submitted by a farmer",
+            "Submit farm_location and the selected asset_ids",
             400,
             {"unexpected": sorted(unexpected)},
         )
@@ -126,14 +130,26 @@ def create_farmer_verification():
                 409,
             )
 
+        from app.services.evidence import farm_snapshot, bind_evidence
+        try:
+            snapshot=farm_snapshot(farmer)
+        except ValueError as exc:
+            return verification_error('FARM_LOCATION_REQUIRED',str(exc),400)
+
         verification = FarmerVerification(
             farmer_id=farmer_id,
             farm_location=location.strip(),
+            location_snapshot=snapshot,
             status="pending",
         )
 
         db.session.add(verification)
         db.session.flush()
+        try:
+            bind_evidence(user,verification,payload.get('asset_ids'),snapshot)
+        except ValueError as exc:
+            db.session.rollback()
+            return verification_error('EVIDENCE_REQUIRED',str(exc),400)
         notify_admins("Verification submitted", f"Farmer #{farmer_id} has requested verification.")
         notify(user.user_id, "Verification submitted", "Your farm is awaiting assignment to an inspection officer.")
         audit("verification", verification.verification_id, "submitted_for_assignment", user.user_id)
@@ -310,10 +326,11 @@ def validate_verification_update(payload):
             "action",
             "recommendation",
             "remarks",
-            "evidence_url",
+            "location_matches",
+            "documents_reviewed",
             "visit_date",
         },
-        "review": {"action", "decision", "remarks"},
+        "review": {"action", "decision", "remarks", "documents_reviewed"},
     }
 
     if action not in allowed_fields:
@@ -351,7 +368,7 @@ def validate_verification_update(payload):
                 400,
             )
 
-        if not isinstance(payload.get("remarks"), str) or not payload["remarks"].strip():
+        if not isinstance(payload.get("remarks"), str) or not payload["remarks"].strip() or len(payload["remarks"]) > 2000:
             return None, verification_error(
                 "INVALID_REMARKS",
                 "Non-empty inspection remarks are required",
@@ -369,18 +386,12 @@ def validate_verification_update(payload):
                     400,
                 )
 
-        if "evidence_url" in payload:
-            evidence = payload["evidence_url"]
-
-            if evidence is not None and (
-                not isinstance(evidence, str)
-                or len(evidence) > 2048
-            ):
-                return None, verification_error(
-                    "INVALID_EVIDENCE_URL",
-                    "Evidence URL must be a string of at most 2048 characters",
-                    400,
-                )
+        if type(payload.get('location_matches')) is not bool:
+            return None,verification_error('LOCATION_CHECK_REQUIRED','Confirm whether the map pin matches the inspected farm.',400)
+        if payload.get('recommendation')=='approve' and not payload['location_matches']:
+            return None,verification_error('LOCATION_MISMATCH','A location mismatch must be corrected before approval.',400)
+        if not payload.get('visit_date'):
+            return None,verification_error('VISIT_DATE_REQUIRED','Enter the inspection visit date.',400)
 
     elif action == "review":
         if payload.get("decision") not in ("approved", "rejected"):
@@ -393,7 +404,7 @@ def validate_verification_update(payload):
     if action == "review" and "remarks" in payload:
         remarks = payload["remarks"]
 
-        if not isinstance(remarks, str) or not remarks.strip():
+        if not isinstance(remarks, str) or not remarks.strip() or len(remarks) > 2000:
             return None, verification_error(
                 "INVALID_REMARKS",
                 "Review remarks must be a non-empty string",
@@ -526,9 +537,19 @@ def update_farmer_verification(verification_id):
                     409,
                 )
 
-            verification.recommendation = payload["recommendation"]
-            verification.remarks = payload["remarks"].strip()
-            verification.evidence_url = payload.get("evidence_url")
+            from app.services.media import readable, review_complete
+            if payload.get('documents_reviewed') is not True:
+                return verification_error('DOCUMENT_REVIEW_REQUIRED','Confirm that you reviewed the submitted evidence.',400)
+            if not review_complete(verification_id,'officer',accepted=payload['recommendation']=='approve'):
+                return verification_error('DOCUMENT_REVIEW_REQUIRED','Record a manual decision for every farmer file. Approval requires all farmer evidence to be accepted.',409)
+            from app.models import MediaAsset
+            visit_photos=MediaAsset.query.filter_by(verification_id=verification_id,purpose='inspection_photo',deleted_at=None,owner_id=user_id).all()
+            if not any(readable(photo) for photo in visit_photos):
+                return verification_error('INSPECTION_EVIDENCE_REQUIRED','Upload at least one readable visit photograph.',400)
+            verification.recommendation = payload['recommendation']
+            verification.remarks = payload['remarks'].strip()
+            verification.location_matches=payload['location_matches']
+            verification.officer_remarks=payload['remarks'].strip()
 
             if payload.get("visit_date") is not None:
                 verification.visit_date = datetime.fromisoformat(
@@ -562,7 +583,17 @@ def update_farmer_verification(verification_id):
                     404,
                 )
 
+            if payload.get('documents_reviewed') is not True:
+                return verification_error('DOCUMENT_REVIEW_REQUIRED','Confirm that you reviewed the application evidence.',400)
+            if user_id==verification.farmer.user_id:
+                return verification_error('FORBIDDEN','You cannot decide your own farmer verification.',403)
+            if payload['decision']=='approved':
+                from app.services.media import review_complete
+                if not review_complete(verification_id,'officer',accepted=True) or not review_complete(verification_id,'admin',accepted=True):
+                    return verification_error('DOCUMENT_REVIEW_REQUIRED','Approval requires accepted officer reviews for farmer evidence and accepted administrator reviews for all evidence.',409)
             decision = payload["decision"]
+            if decision=='approved' and (not verification.location_snapshot or verification.location_matches is not True):
+                return verification_error('LOCATION_NOT_VERIFIED','The officer must confirm the submitted farm pin before approval.',409)
             verification.status = decision
             verification.reviewed_by_admin_id = admin.admin_id
             verification.reviewed_at = datetime.now(timezone.utc).replace(

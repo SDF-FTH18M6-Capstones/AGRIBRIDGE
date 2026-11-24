@@ -34,7 +34,16 @@ def check_if_token_revoked(jwt_header, jwt_payload):
 
     user = db.session.get(User, user_id)
 
-    return user is None or jwt_payload.get("auth_version", 0) != user.auth_version
+    if user is None or jwt_payload.get('auth_version',0) != user.auth_version: return True
+    sid = jwt_payload.get('sid')
+    if not sid:
+        from flask import current_app
+        return not current_app.testing
+    from flask import request
+    from app.models import AuthSession
+    from app.services.sessions import valid
+    session = db.session.get(AuthSession, sid)
+    return not session or session.user_id != user_id or request.headers.get('X-Tab-ID') != session.tab_id or not valid(session)
 
 
 @jwt.additional_claims_loader

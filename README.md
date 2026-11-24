@@ -58,7 +58,7 @@ proxies `/api/*` to it. Use `SSR_API_URL` to select a different API address. Pro
 requires the Node SSR server, not static-only frontend hosting.
 
 Optional **development-only** sample data: `flask --app run.py seed` in `server`.
-This writes to the configured database. Demo users use `AgriBridge123!`:
+This writes to the configured database. Demo users use `AgriBridgeDemo123!`:
 `amina.farmer@example.com`, `peter.farmer@example.com`,
 `grace.buyer@example.com`, `kisumu.buyer@example.com`, `admin@example.com`.
 Do not use demo credentials for a real launch.

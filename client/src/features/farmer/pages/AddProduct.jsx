@@ -1,3 +1,5 @@
+import { Spinner } from '../../../components/ui/Loading';
+import { prepareImage } from '../../v1/prepareImage';
 
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -135,7 +137,7 @@ function AddProduct() {
   }, [image]);
 
   const inputClass =
-    "w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-gray-800 outline-none transition focus:border-green-700 focus:ring-2 focus:ring-green-100";
+    "w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-800 outline-none transition focus:border-green-700 focus:ring-2 focus:ring-green-100";
 
   const labelClass = "mb-2 block text-sm font-semibold text-gray-700";
 
@@ -154,26 +156,16 @@ function AddProduct() {
     setError("");
   };
 
-  const handleImage = (e) => {
-    const file = e.target.files?.[0];
-
+  const handleImage = async (event) => {
+    const file = event.target.files?.[0];
     if (!file) return;
-
-    if (!file.type.startsWith("image/")) {
-      setError("Please select a valid image.");
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      setError("Image size must not exceed 5MB.");
-      return;
-    }
-
-    setImageFile(file);
-    setImage(URL.createObjectURL(file));
-    setImageName(file.name);
-    setError("");
+    if (!file.type.startsWith('image/')) { setError('Please select a photograph.'); return; }
+    try {
+      const prepared = await prepareImage(file);
+      setImageFile(prepared); setImage(URL.createObjectURL(prepared)); setImageName(file.name); setError('');
+    } catch (failure) { setError(failure.message); }
   };
+  useEffect(() => () => { if (image) URL.revokeObjectURL(image); }, [image]);
 
   const validateStep = () => {
     if (currentStep === 1) {
@@ -300,15 +292,18 @@ function AddProduct() {
       if (imageFile) {
         try {
           const imageFormData = new FormData();
-          imageFormData.append("image", imageFile);
+          imageFormData.append("file", imageFile);
+          imageFormData.append("purpose", "product_image");
+          imageFormData.append("product_id", savedProduct.product.id);
 
           const imageResponse = await api.post(
-            `/products/${savedProduct.product.id}/images`,
-            imageFormData
+            "/media",
+            imageFormData,
+            { timeout: 90000 }
           );
 
           const uploadedImageUrl =
-            imageResponse.data?.data?.image_url || "";
+            imageResponse.data?.data?.public_url || `/api/media/${imageResponse.data.data.asset_id}/public`;
 
           if (!uploadedImageUrl) {
             throw new Error("The server did not return an image URL.");
@@ -371,7 +366,7 @@ function AddProduct() {
         </p>
       </div>
 
-      <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
+      <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
         <div className="mb-5 flex items-center justify-between">
           <h2 className="font-bold text-gray-900">
             Product listing process
@@ -401,27 +396,23 @@ function AddProduct() {
         </div>
       </section>
 
-      <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:p-8">
+      <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-8">
         {profileLoading && (
-          <div className="mb-5 rounded-lg bg-blue-50 p-3 text-sm text-blue-800">
-            Loading your saved farm details...
-          </div>
+          <Spinner label="Loading product form options" />
         )}
 
         {profileError && (
-          <div className="mb-5 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
+          <div className="mb-5 rounded-xl border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
             {profileError}
           </div>
         )}
 
         {categoriesLoading && (
-          <div className="mb-5 rounded-lg bg-blue-50 p-3 text-sm text-blue-800">
-            Loading product categories...
-          </div>
+          <Spinner label="Loading product form options" />
         )}
 
         {error && (
-          <div className="mb-5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          <div className="mb-5 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
             {error}
           </div>
         )}
@@ -497,24 +488,26 @@ function AddProduct() {
               <input
                 className={inputClass}
                 type="file"
+                aria-label="Choose a product photograph"
                 accept="image/*"
                 onChange={handleImage}
               />
 
               <p className="mt-1 text-xs text-gray-500">
-                Image must not exceed 5MB.
+                Images are optimized before upload and must be at most 5 MB afterward.
               </p>
 
+              <label className="mt-3 inline-flex cursor-pointer rounded-xl border px-4 py-2 text-sm font-semibold text-green-900">Take photo<input className="sr-only" type="file" accept="image/*" capture="environment" onChange={handleImage} /></label>
               {image && (
                 <div className="mt-4">
                   <img
                     src={image}
                     alt="Product preview"
-                    className="h-40 w-40 rounded-lg border object-cover"
+                    className="h-40 w-40 rounded-xl border object-cover"
                   />
 
                   <p className="mt-2 text-sm text-gray-600">
-                    {imageName}
+              {imageName}
                   </p>
                 </div>
               )}
@@ -681,7 +674,7 @@ function AddProduct() {
               />
             )}
 
-            <div className="divide-y divide-gray-100 rounded-lg border border-gray-200">
+            <div className="divide-y divide-gray-100 rounded-xl border border-gray-200">
               {[
                 ["Product", form.name],
                 ["Category", selectedCategory?.category_name || "Not selected"],
@@ -728,7 +721,7 @@ function AddProduct() {
                 previousStep();
               }
             }}
-            className="rounded-lg border border-gray-300 px-6 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+            className="rounded-xl border border-gray-300 px-6 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
           >
             {currentStep === 1 ? "Cancel" : "Previous"}
           </button>
@@ -748,7 +741,7 @@ function AddProduct() {
               disabled={publishing || categoriesLoading || categories.length === 0}
               className="rounded-lg bg-green-800 px-6 py-3 text-sm font-semibold text-white hover:bg-green-900 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {publishing ? "Publishing..." : "Publish product"}
+              {publishing ? <Spinner label="Publishing" /> : "Publish product"}
             </button>
           )}
         </div>

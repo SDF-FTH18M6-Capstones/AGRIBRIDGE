@@ -24,7 +24,7 @@ function FormSelect({
         onChange={onChange}
         aria-invalid={Boolean(error)}
         aria-describedby={error ? `${name}-error` : undefined}
-        className={`w-full rounded-lg border bg-white p-3 outline-none focus:ring-2 ${
+        className={`w-full rounded-xl border bg-white p-3 outline-none focus:ring-2 ${
           error
             ? "border-red-500 focus:ring-red-400"
             : "border-gray-300 focus:ring-green-500"

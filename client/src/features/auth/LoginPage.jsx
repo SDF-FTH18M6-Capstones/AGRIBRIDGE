@@ -1,3 +1,4 @@
+import { Spinner } from '../../components/ui/Loading';
 
 import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
@@ -6,7 +7,7 @@ import api from "../../services/api.js";
 import { safeNext } from "../v1/format";
 
 const inputClass =
-  "w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-green-700 focus:ring-2 focus:ring-green-100";
+  "w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-green-700 focus:ring-2 focus:ring-green-100";
 
 export default function LoginPage() {
   const [form, setForm] = useState({
@@ -73,7 +74,7 @@ export default function LoginPage() {
         );
       }
 
-      login({ token, user });
+      login({ token, user, ...result.data });
       const from = location.state?.from;
       const destination = safeNext(new URLSearchParams(location.search).get("next") ||
         (from ? from.pathname + (from.search || "") : null));
@@ -91,16 +92,14 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-[75vh] items-center justify-center bg-[#f7faf6] px-4 py-12">
+    <main className="flex min-h-[75vh] items-center justify-center bg-white px-4 py-12">
       <div className="w-full max-w-md">
         {/* Branding */}
         <div className="mb-8 text-center">
           <Link
             to="/"
             className="text-3xl font-extrabold tracking-tight text-green-800"
-          >
-            AgriBridge
-          </Link>
+          ><img src="/assets/brand/logo.webp" alt="AgriBridge" width="132" height="88" className="inline-block h-20 w-32 object-contain" /></Link>
 
           <h1 className="mt-6 text-3xl font-bold text-green-950">
             Welcome back
@@ -200,7 +199,7 @@ export default function LoginPage() {
               disabled={isSubmitting}
               className="w-full rounded-lg bg-green-800 px-5 py-3 font-semibold text-white transition hover:bg-green-900 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isSubmitting ? "Logging in..." : "Login"}
+              {isSubmitting ? <Spinner label="Logging in" /> : "Login"}
             </button>
           </form>
 

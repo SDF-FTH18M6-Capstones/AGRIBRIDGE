@@ -134,6 +134,16 @@ def update_my_profile():
             }
         }), 400
 
+    from app.services.locations import validate_location, general_location
+    try:
+        validate_location(validated_data, require=profile_type == 'buyer' and profile is None)
+        if validated_data.get('county_code'):
+            if not (validated_data.get('town') or '').strip() and profile_type == 'buyer':
+                raise ValueError('Enter your town or area.')
+            validated_data['location'] = general_location(validated_data)
+    except ValueError as exc:
+        return jsonify(error={'code':'INVALID_LOCATION','message':str(exc)}), 400
+
     try:
         # Profile creation must not replace the account's other capabilities.
         if profile is None:
@@ -145,11 +155,17 @@ def update_my_profile():
             db.session.add(profile)
 
         if profile_type == "farmer" and profile.verification_status == "approved" and any(
-            getattr(profile, key) != validated_data[key] for key in ("farm_name", "location")
+            getattr(profile, key) != validated_data[key] for key in ("farm_name", "location", "county_code", "subcounty_code", "ward_code", "latitude", "longitude", "directions", "landmark", "land_tenure") if key in validated_data
         ):
             profile.verification_status = "pending"
             from app.services.commerce import notify
             notify(user.user_id, "Farm details changed", "Please request verification again after changing your farm name or location.")
+        if profile_type == 'farmer':
+            from app.models import FarmerVerification
+            active = FarmerVerification.query.filter(FarmerVerification.farmer_id == profile.farmer_id, FarmerVerification.status.in_(['pending','assigned','submitted'])).first() if profile.farmer_id else None
+            if active and any(getattr(profile,key,None) != value for key,value in validated_data.items() if key in ['farm_name','county_code','subcounty_code','ward_code','latitude','longitude','directions','landmark','land_tenure']):
+                db.session.rollback()
+                return jsonify(error={'code':'VERIFICATION_IN_PROGRESS','message':'Complete the current verification review before changing the submitted farm location or land details.'}),409
         for field, value in validated_data.items():
             setattr(profile, field, value)
 

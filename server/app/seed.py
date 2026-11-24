@@ -23,7 +23,7 @@ from app.models import (
 )
 
 
-SEED_PASSWORD = "AgriBridge123!"
+SEED_PASSWORD = "AgriBridgeDemo123!"
 
 
 def _upsert(model, lookup, values):

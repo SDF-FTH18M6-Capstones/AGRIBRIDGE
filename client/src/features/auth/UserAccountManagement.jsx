@@ -51,7 +51,7 @@ export default function UserAccountManagement() {
       )}
 
       {isEditing ? (
-        <div className="rounded-lg border bg-white p-6 shadow-sm">
+        <div className="rounded-xl border bg-white p-6 shadow-sm">
           <h2 className="mb-4 text-xl font-semibold">
             Edit Account
           </h2>
@@ -63,7 +63,7 @@ export default function UserAccountManagement() {
           />
         </div>
       ) : (
-        <div className="rounded-lg border bg-white p-6 shadow-sm">
+        <div className="rounded-xl border bg-white p-6 shadow-sm">
           <div className="space-y-4">
             <div>
               <p className="text-sm text-gray-500">

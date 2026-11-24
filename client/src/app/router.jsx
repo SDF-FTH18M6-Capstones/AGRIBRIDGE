@@ -1,67 +1,64 @@
+import { Reviews, AuthPage, LoginPage, SignUpPage, RoleSelectionPage, ForgotPasswordPage, ResetPasswordPage, CheckoutPage, MarketplacePage, AboutPage, ProfilePage, TrackOrdersPage, AdminLayout, AdminDashboard, AdminVerification, FieldOfficers, Buyers, Categories, OrdersAdmin, PaymentsPage, AdminNotifications, Issues, AccountNotifications, AuditHistory, Moderation, AccountShell, AccountSettings, CartPage, Reports, AdminSettings, FarmerLayout, FarmerDashboard, MyProducts, AddProduct, FarmerOrders, FarmerPayments, FarmerNotifications, FarmerSettings, BuyerLayout, BuyerDashboard, BrowseProducts, FarmerProfile, SavedProducts, MyOrders, BuyerPayments, Notifications, BuyerSettings, FieldOfficerDashboard } from './LazyPages';
 
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import App from "../App.jsx";
-import Reviews from "../features/v1/Reviews";
 
 // Authentication
-import AuthPage from "../features/auth/AuthPage.jsx";
-import LoginPage from "../features/auth/LoginPage.jsx";
-import SignUpPage from "../features/auth/SignUpPage.jsx";
-import RoleSelectionPage from "../features/auth/RoleSelectionPage.jsx";
-import ForgotPasswordPage from "../features/auth/ForgotPasswordPage.jsx";
-import ResetPasswordPage from "../features/auth/ResetPasswordPage.jsx";
+
+
+
+
+
+
 import ProtectedRoute from "../components/auth/ProtectedRoute.jsx";
 
 // Checkout
-import CheckoutPage from "../features/checkout/CheckoutPage.jsx";
 
 // Public pages
 import HomePage from "../features/marketplace/HomePage.jsx";
-import MarketplacePage from "../features/marketplace/MarketplacePage.jsx";
-import AboutPage from "./AboutPage.jsx";
-import ProfilePage from "./ProfilePage.jsx";
-import TrackOrdersPage from "./TrackOrdersPage.jsx";
+
+
+
 
 // Admin imports
-import AdminLayout from "../features/admin/AdminLayout.jsx";
-import AdminDashboard from "../features/admin/AdminDashboard.jsx";
-import AdminVerification from "../features/admin/pages/AdminVerification.jsx";
-import FieldOfficers from "../features/admin/pages/FieldOfficers.jsx";
-import Buyers from "../features/admin/Buyers.jsx";
-import Categories from "../features/admin/pages/Categories.jsx";
-import OrdersAdmin from "../features/admin/pages/Orders.jsx";
-import PaymentsPage from "../features/admin/pages/PaymentsPage.jsx";
-import AdminNotifications from "../features/admin/pages/AdminNotifications.jsx";
-import { Issues, Notifications as AccountNotifications, AuditHistory, Moderation } from "../features/v1/Operations";
-import { AccountShell } from "../features/v1/UI";
-import { AccountSettings } from "../features/portal/PortalPages";
-import CartPage from "../features/v1/Cart";
-import Reports from "../features/admin/pages/Reports.jsx";
-import AdminSettings from "../features/admin/pages/Settings.jsx";
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // Farmer imports
-import FarmerLayout from "../features/farmer/FarmerLayout.jsx";
-import FarmerDashboard from "../features/farmer/pages/FarmerDashboard.jsx";
-import MyProducts from "../features/farmer/pages/MyProducts.jsx";
-import AddProduct from "../features/farmer/pages/AddProduct.jsx";
-import FarmerOrders from "../features/farmer/pages/FarmerOrders.jsx";
-import FarmerPayments from "../features/farmer/pages/FarmerPayments.jsx";
-import FarmerNotifications from "../features/farmer/pages/FarmerNotifications.jsx";
-import FarmerSettings from "../features/farmer/pages/FarmerSettings.jsx";
+
+
+
+
+
+
+
 
 // Buyer imports
-import BuyerLayout from "../features/buyer/components/BuyerLayout.jsx";
-import BuyerDashboard from "../features/buyer/pages/BuyerDashboard.jsx";
-import BrowseProducts from "../features/buyer/pages/BrowseProducts.jsx";
-import FarmerProfile from "../features/buyer/pages/FarmerProfile.jsx";
-import SavedProducts from "../features/buyer/pages/SavedProducts.jsx";
-import MyOrders from "../features/buyer/pages/MyOrders.jsx";
-import BuyerPayments from "../features/buyer/pages/Payments.jsx";
-import Notifications from "../features/buyer/pages/Notifications.jsx";
-import BuyerSettings from "../features/buyer/pages/Settings.jsx";
+
+
+
+
+
+
+
+
 
 // Field Officer
-import FieldOfficerDashboard from "../features/field-officer/FieldOfficerDashboard.jsx";
 
 const router = createBrowserRouter([
   // Public routes

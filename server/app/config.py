@@ -30,7 +30,7 @@ class Config:
     CORS_ORIGINS = [origin.strip() for origin in os.getenv(
         "CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
     ).split(",") if origin.strip()]
-    MAX_CONTENT_LENGTH = 6 * 1024 * 1024
+    MAX_CONTENT_LENGTH = 11 * 1024 * 1024
     PAYSTACK_SECRET_KEY = os.getenv("PAYSTACK_SECRET_KEY")
     PAYSTACK_CALLBACK_URL = os.getenv("PAYSTACK_CALLBACK_URL", "http://localhost:5173/buyer/payments")
     PAYSTACK_WEBHOOK_SECRET = os.getenv("PAYSTACK_WEBHOOK_SECRET")
@@ -41,3 +41,7 @@ class Config:
     NOTIFICATION_EMAILS_ENABLED = os.getenv("NOTIFICATION_EMAILS_ENABLED", "true").lower() == "true"
     PUBLIC_FRONTEND_URL = os.getenv("PUBLIC_FRONTEND_URL", "http://localhost:5173")
     PAYMENTS_SANDBOX_ONLY = True
+
+    CLOUDINARY_CLOUD_NAME = os.getenv('CLOUDINARY_CLOUD_NAME')
+    CLOUDINARY_API_KEY = os.getenv('CLOUDINARY_API_KEY')
+    CLOUDINARY_API_SECRET = os.getenv('CLOUDINARY_API_SECRET')

@@ -4,10 +4,11 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>client</title>
+    <title>AgriBridge — Fresh from the farm</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"></div><div id="boot-loading"><div role="status" aria-label="Loading AgriBridge" style="display:grid;place-items:center;min-height:70vh;color:#168a45"><svg class="loading-spinner" width="36" height="36" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2.5" opacity=".2"/><path d="M12 3a9 9 0 0 1 9 9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg></div></div>
+    <style>#root:not(:empty)~#boot-loading{display:none}</style>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

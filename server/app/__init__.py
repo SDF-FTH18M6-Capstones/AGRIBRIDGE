@@ -75,7 +75,29 @@ def create_app(test_config=None):
     app.register_blueprint(portal_bp, url_prefix="/api")
 
     app.register_blueprint(v1_bp, url_prefix="/api")
+    from app.routes.locations import locations_bp
+    from app.routes.sessions import sessions_bp
+    from app.routes.media import media_bp
+    app.register_blueprint(locations_bp, url_prefix='/api')
+    app.register_blueprint(sessions_bp, url_prefix='/api')
+    app.register_blueprint(media_bp, url_prefix='/api')
     register_worker(app)
     register_seed_command(app)
+
+    @app.errorhandler(413)
+    def oversized_upload(error):
+        from flask import jsonify
+        return jsonify(error={'code':'FILE_TOO_LARGE','message':'Upload one file at a time: images up to 5 MB and PDFs up to 10 MB.'}),413
+
+    @app.before_request
+    def sensitive_password_confirmation():
+        from flask import request, jsonify
+        if request.method not in ['PATCH','PUT','POST','DELETE']: return
+        if not (request.path.startswith('/api/admin/order-issues/') or request.path == '/api/admin/settings' or request.path.startswith('/api/sessions/revoke')): return
+        from flask_jwt_extended import verify_jwt_in_request
+        verify_jwt_in_request()
+        from app.services.sessions import require_recent_password
+        if not require_recent_password():
+            return jsonify(error={'code':'REAUTH_REQUIRED','message':'Confirm your password to continue.'}),403
 
     return app

@@ -23,6 +23,7 @@ def client(monkeypatch):
     with app.app_context():
         db.create_all()
         with app.test_client() as test_client:
+            test_client.environ_base["HTTP_X_TAB_ID"] = "auth-test-tab"
             yield test_client
         db.session.remove()
         db.drop_all()
@@ -32,7 +33,7 @@ def registration_data(**overrides):
     data = {
         "full_name": "Amina Farmer",
         "email": "amina@example.com",
-        "password": "securepass123",
+        "password": "SecureJourney123!",
         "phone_number": "+254712345678",
         "role": "farmer",
     }
@@ -45,7 +46,7 @@ def register(client):
 
 
 def login(client):
-    return client.post("/api/login", json={"email": "amina@example.com", "password": "securepass123"})
+    return client.post("/api/login", json={"email": "amina@example.com", "password": "SecureJourney123!"})
 
 
 def test_register_hashes_password_and_returns_created(client):
@@ -54,8 +55,8 @@ def test_register_hashes_password_and_returns_created(client):
     assert response.json["data"]["email"] == "amina@example.com"
     assert "password" not in response.json["data"]
     user = User.query.one()
-    assert user.password_hash != "securepass123"
-    assert user.check_password("securepass123")
+    assert user.password_hash != "SecureJourney123!"
+    assert user.check_password("SecureJourney123!")
 
 
 def test_register_rejects_duplicate_email(client):
@@ -130,13 +131,13 @@ def test_reset_password_changes_password_and_token_is_one_time(client, monkeypat
     monkeypatch.setattr("app.routes.auth._send_reset_email", lambda user, token: captured.update(token=token))
     client.post("/api/forgot-password", json={"email": "amina@example.com"})
 
-    response = client.post("/api/reset-password", json={"token": captured["token"], "password": "newsecurepass456"})
+    response = client.post("/api/reset-password", json={"token": captured["token"], "password": "NewSecureJourney456!"})
     assert response.status_code == 200
     user = User.query.one()
-    assert user.check_password("newsecurepass456")
-    assert not user.check_password("securepass123")
+    assert user.check_password("NewSecureJourney456!")
+    assert not user.check_password("SecureJourney123!")
 
-    reuse = client.post("/api/reset-password", json={"token": captured["token"], "password": "anothersecure789"})
+    reuse = client.post("/api/reset-password", json={"token": captured["token"], "password": "AnotherJourney789!"})
     assert reuse.status_code == 400
 
 
@@ -150,7 +151,7 @@ def test_reset_password_rejects_expired_token(client):
         expires_at=datetime.now(timezone.utc) - timedelta(minutes=1),
     ))
     db.session.commit()
-    response = client.post("/api/reset-password", json={"token": raw_token, "password": "newsecurepass456"})
+    response = client.post("/api/reset-password", json={"token": raw_token, "password": "NewSecureJourney456!"})
     assert response.status_code == 400
     assert response.json["error"]["code"] == "INVALID_RESET_TOKEN"
 
@@ -171,7 +172,7 @@ def test_register_without_role(client):
 
     user = User.query.one()
     assert user.role_id is None
-    assert user.check_password("securepass123")
+    assert user.check_password("SecureJourney123!")
 
 def test_login_without_role_returns_null_role(client):
     data = registration_data()
@@ -183,7 +184,7 @@ def test_login_without_role_returns_null_role(client):
         "/api/login",
         json={
             "email": "amina@example.com",
-            "password": "securepass123",
+            "password": "SecureJourney123!",
         },
     )
 

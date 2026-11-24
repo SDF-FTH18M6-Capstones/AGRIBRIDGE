@@ -1,3 +1,7 @@
+import { ContentSkeleton } from '../../../components/ui/Loading';
+import { Spinner } from '../../../components/ui/Loading';
+import Uploads, { FileCard } from '../../v1/Uploads';
+import useResource from '../../v1/useResource';
 
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -45,6 +49,8 @@ function FarmerMyProducts() {
 
   const [filter, setFilter] = useState("All");
   const [qtyDraft, setQtyDraft] = useState({});
+  const [imagesFor, setImagesFor] = useState(null);
+  const media = useResource("/media", true);
   const [editingId, setEditingId] = useState(null);
   const [editDraft, setEditDraft] = useState({});
   const [message, setMessage] = useState("");
@@ -54,10 +60,10 @@ function FarmerMyProducts() {
   }, [dispatch]);
 
   const inputClass =
-    "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 outline-none transition focus:border-[#168343] focus:ring-2 focus:ring-green-100";
+    "w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 outline-none transition focus:border-[#168343] focus:ring-2 focus:ring-green-100";
 
   const linkButton =
-    "text-sm font-medium text-gray-700 underline hover:text-[#168343]";
+    "text-sm font-medium text-gray-700 underline hover:text-green-700";
 
   // Optimistic quantity update with rollback.
   const updateQty = async (product) => {
@@ -223,13 +229,14 @@ function FarmerMyProducts() {
       {message && (
         <div
           role="status"
-          className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700"
+          className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700"
         >
           {message}
         </div>
       )}
 
-      <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+      {imagesFor && <section className="space-y-4 rounded-2xl border bg-white p-5"><div className="flex justify-between gap-3"><h2 className="font-bold">Photos for {imagesFor.name}</h2><button className="underline" onClick={() => setImagesFor(null)}>Close photos</button></div><Uploads purpose="product_image" productId={imagesFor.id} onUploaded={media.reload} /><div className="grid gap-3 sm:grid-cols-2">{media.data?.filter(asset => asset.product_id === imagesFor.id).map(asset => <FileCard key={asset.asset_id} asset={asset} />)}</div></section>}
+      <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-bold text-gray-900">
             Listings
@@ -237,7 +244,7 @@ function FarmerMyProducts() {
 
           <Link
             to={ADD_PRODUCT_PATH}
-            className="inline-block rounded-lg bg-[#174832] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#103724]"
+            className="inline-block rounded-lg bg-green-800 px-5 py-3 text-sm font-semibold text-white transition hover:bg-green-700"
           >
             + Add product
           </Link>
@@ -247,7 +254,7 @@ function FarmerMyProducts() {
           value={filter}
           onChange={(event) => setFilter(event.target.value)}
           aria-label="Filter products by status"
-          className="mb-5 w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-gray-800 outline-none transition focus:border-[#168343] focus:ring-2 focus:ring-green-100"
+          className="mb-5 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-800 outline-none transition focus:border-[#168343] focus:ring-2 focus:ring-green-100"
         >
           <option value="All">Filter: All ({products.length})</option>
 
@@ -259,9 +266,7 @@ function FarmerMyProducts() {
         </select>
 
         {loading ? (
-          <p className="text-sm text-gray-500">
-            Loading your products...
-          </p>
+          <ContentSkeleton label="Loading your products" />
         ) : visible.length === 0 ? (
           <p className="text-sm text-gray-500">
             {products.length === 0
@@ -370,9 +375,9 @@ function FarmerMyProducts() {
                             type="button"
                             onClick={() => updateQty(product)}
                             disabled={!changed || busy}
-                            className="text-sm font-medium text-gray-700 underline hover:text-[#168343] disabled:cursor-not-allowed disabled:opacity-40"
+                            className="text-sm font-medium text-gray-700 underline hover:text-green-700 disabled:cursor-not-allowed disabled:opacity-40"
                           >
-                            {busy ? "Saving..." : "Update"}
+                            {busy ? <Spinner label="Saving" /> : "Update"}
                           </button>
                         </div>
                       </td>
@@ -437,7 +442,7 @@ function FarmerMyProducts() {
                               type="button"
                               onClick={() => saveEdit(product)}
                               disabled={busy}
-                              className="text-sm font-semibold text-[#168343] underline disabled:opacity-40"
+                              className="text-sm font-semibold text-green-700 underline disabled:opacity-40"
                             >
                               Save
                             </button>
@@ -452,6 +457,7 @@ function FarmerMyProducts() {
                           </div>
                         ) : (
                           <div className="flex gap-3">
+                            <button type="button" className={linkButton} onClick={() => setImagesFor(product)}>Photos</button>
                             <button
                               type="button"
                               onClick={() => startEdit(product)}

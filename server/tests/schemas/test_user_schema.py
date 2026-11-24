@@ -9,7 +9,7 @@ def test_valid_user_data():
     data ={
         "full_name":"Josephine Njuguna",
         "email":"josephine@example.com",
-        "password":"password123",
+        "password":"GrowingHarvest123!",
         "phone_number":"0712345678",
         "role":"farmer"
     }
@@ -27,7 +27,7 @@ def test_valid_buyer_role():
     data = {
         "full_name": "John Kamau",
         "email": "john@example.com",
-        "password": "password123",
+        "password": "GrowingHarvest123!",
         "phone_number": "0712345678",
         "role": "buyer"
     }
@@ -44,7 +44,7 @@ def test_user_password_is_not_in_dump():
         "user_id": 1,
         "full_name": "Josephine Njuguna",
         "email": "josephine@example.com",
-        "password": "password123",
+        "password": "GrowingHarvest123!",
         "role": "farmer"
     }
 
@@ -59,7 +59,7 @@ def test_invalid_email():
     data = {
         "full_name": "Josephine Njuguna",
         "email": "invalid-email",
-        "password": "password123",
+        "password": "GrowingHarvest123!",
         "role": "farmer"
     }
 
@@ -87,7 +87,7 @@ def test_invalid_role():
     data = {
         "full_name": "Josephine Njuguna",
         "email": "josephine@example.com",
-        "password": "password123",
+        "password": "GrowingHarvest123!",
         "role": "admin"
     }
 
@@ -101,7 +101,7 @@ def test_invalid_kenyan_phone_number():
     data = {
         "full_name": "Josephine Njuguna",
         "email": "josephine@example.com",
-        "password": "password123",
+        "password": "GrowingHarvest123!",
         "phone_number": "12345",
         "role": "farmer"
     }

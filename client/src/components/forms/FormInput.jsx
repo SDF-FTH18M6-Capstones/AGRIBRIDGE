@@ -26,7 +26,7 @@ function FormInput({
         placeholder={placeholder}
         aria-invalid={Boolean(error)}
         aria-describedby={error ? `${name}-error` : undefined}
-        className={`w-full rounded-lg border p-3 outline-none focus:ring-2 ${
+        className={`w-full rounded-xl border p-3 outline-none focus:ring-2 ${
           error
             ? "border-red-500 focus:ring-red-400"
             : "border-gray-300 focus:ring-green-500"

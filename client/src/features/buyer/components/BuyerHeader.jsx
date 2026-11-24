@@ -23,7 +23,7 @@ const BuyerHeader = ({
         <p className="text-sm font-medium text-gray-500">
           Buyer Portal
         </p>
-        <h2 className="text-2xl font-bold tracking-tight text-[#12432f]">
+        <h2 className="text-2xl font-bold tracking-tight text-green-950">
           {title}
         </h2>
       </div>
@@ -33,7 +33,7 @@ const BuyerHeader = ({
         <button
           type="button"
           onClick={onSwitchRole}
-          className="flex items-center gap-2 rounded-lg border border-[#12432f] bg-white px-5 py-3 font-medium text-[#12432f] transition hover:bg-green-50"
+          className="flex items-center gap-2 rounded-xl border border-[#12432f] bg-white px-5 py-3 font-medium text-green-950 transition hover:bg-green-50"
         >
           <FontAwesomeIcon icon={faRepeat} />
           <span>{switchLabel}</span>
@@ -42,7 +42,7 @@ const BuyerHeader = ({
         <button
           type="button"
           onClick={onNotificationsClick}
-          className="flex items-center gap-2 font-medium text-gray-600 transition hover:text-[#12432f]"
+          className="flex items-center gap-2 font-medium text-gray-600 transition hover:text-green-950"
         >
           <FontAwesomeIcon icon={faBell} />
           <span>Notifications</span>
@@ -51,7 +51,7 @@ const BuyerHeader = ({
         <button
           type="button"
           onClick={onProfileClick}
-          className="flex items-center gap-2 font-medium text-gray-600 transition hover:text-[#12432f]"
+          className="flex items-center gap-2 font-medium text-gray-600 transition hover:text-green-950"
         >
           <FontAwesomeIcon icon={faUser} />
           <span>Profile</span>

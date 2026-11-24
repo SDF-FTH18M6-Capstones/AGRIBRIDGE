@@ -33,7 +33,7 @@ const formatKES = (amount) =>
 
 const statusStyles = {
   "Pending": "bg-amber-50 text-amber-800",
-  "In transit": "bg-blue-50 text-blue-800",
+  "In transit": "bg-green-50 text-green-900",
   "Delivered": "bg-green-100 text-green-800",
 };
 
@@ -57,7 +57,7 @@ export default function BuyerDashboard() {
   ];
 
   return (
-    <main className="min-h-screen bg-[#f7faf6] p-4 text-gray-900 sm:p-6 lg:p-8">
+    <main className="min-h-screen bg-white p-4 text-gray-900 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl space-y-8">
         {/* Welcome */}
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -86,7 +86,7 @@ export default function BuyerDashboard() {
           {stats.map((stat) => (
             <div
               key={stat.label}
-              className="rounded-xl border border-green-100 bg-white p-6 shadow-sm"
+              className="rounded-2xl border border-green-100 bg-white p-6 shadow-sm"
             >
               <p className="text-sm font-medium text-gray-500">
                 {stat.label}
@@ -99,7 +99,7 @@ export default function BuyerDashboard() {
         </section>
 
         {/* Recent orders */}
-        <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b p-6">
             <div>
               <h2 className="text-xl font-bold text-green-950">
@@ -161,7 +161,7 @@ export default function BuyerDashboard() {
           <div className="grid gap-4 sm:grid-cols-3">
             <Link
               to="/marketplace"
-              className="rounded-xl border border-green-100 bg-white p-6 shadow-sm transition hover:border-green-300 hover:shadow-md"
+              className="rounded-2xl border border-green-100 bg-white p-6 shadow-sm transition hover:border-green-300 hover:shadow-md"
             >
               <h3 className="font-bold text-green-900">
                 Browse Produce →
@@ -173,7 +173,7 @@ export default function BuyerDashboard() {
 
             <Link
               to="/buyer/orders"
-              className="rounded-xl border border-green-100 bg-white p-6 shadow-sm transition hover:border-green-300 hover:shadow-md"
+              className="rounded-2xl border border-green-100 bg-white p-6 shadow-sm transition hover:border-green-300 hover:shadow-md"
             >
               <h3 className="font-bold text-green-900">
                 My Orders →
@@ -185,7 +185,7 @@ export default function BuyerDashboard() {
 
             <Link
               to="/buyer/track-orders"
-              className="rounded-xl border border-green-100 bg-white p-6 shadow-sm transition hover:border-green-300 hover:shadow-md"
+              className="rounded-2xl border border-green-100 bg-white p-6 shadow-sm transition hover:border-green-300 hover:shadow-md"
             >
               <h3 className="font-bold text-green-900">
                 Track Orders →

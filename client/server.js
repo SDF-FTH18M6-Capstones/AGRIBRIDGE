@@ -25,13 +25,22 @@ async function api(endpoint) {
   return payload;
 }
 
+let categoryRequest;
+let categoryCache;
+async function publicCategories() {
+  if (categoryCache && Date.now() - categoryCache.at < 30000) return categoryCache.data;
+  if (!categoryRequest) categoryRequest = api('/categories/').then(data => { categoryCache = { data, at: Date.now() }; return data; }).finally(() => { categoryRequest = null; });
+  return categoryRequest;
+}
+
 async function handle(req, res) {
   const url = new URL(req.url, 'http://localhost');
   if (url.pathname.startsWith('/api/')) {
     const target = new URL(`${backend}${url.pathname.slice(4)}${url.search}`);
     const client = target.protocol === 'https:' ? https : http;
     const proxy = client.request(target, { method: req.method, headers: { ...req.headers, host: target.host } }, upstream => { res.writeHead(upstream.statusCode, upstream.headers); upstream.pipe(res); });
-    proxy.setTimeout(20000, () => proxy.destroy(new Error('Backend timeout')));
+    const uploadRequest = req.method === 'POST' && (url.pathname === '/api/media' || /\/products\/\d+\/images$/.test(url.pathname));
+    proxy.setTimeout(uploadRequest ? 120000 : 20000, () => proxy.destroy(new Error('Backend timeout')));
     proxy.on('error', () => { if (!res.headersSent) res.writeHead(502, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: { message: 'The API is unavailable. Please try again.' } })); });
     req.pipe(proxy); return;
   }
@@ -43,8 +52,8 @@ async function handle(req, res) {
         try {
           const stat = await fs.stat(filename);
           if (stat.isFile()) {
-            const types = { '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon' };
-            res.writeHead(200, { 'Content-Type': types[path.extname(filename)] || 'application/octet-stream', 'Cache-Control': filename.includes('/assets/') ? 'public,max-age=31536000,immutable' : 'no-cache' });
+            const types = { '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon', '.ttf': 'font/ttf', '.woff2': 'font/woff2' };
+            res.writeHead(200, { 'Content-Type': types[path.extname(filename)] || 'application/octet-stream', 'Cache-Control': filename.includes('/assets/') && /-[A-Za-z0-9_-]{8,}\.(?:js|css)$/.test(filename) ? 'public,max-age=31536000,immutable' : 'public,max-age=3600' });
             res.end(req.method === 'HEAD' ? undefined : await fs.readFile(filename)); return;
           }
         } catch { /* Route through the HTML handler. */ }
@@ -65,11 +74,14 @@ async function handle(req, res) {
           const query = new URLSearchParams({ availability: 'available', per_page: '12' });
           const keys = { q: 'search', county: 'location', category_id: 'category_id', min_price: 'min_price', max_price: 'max_price', minimum_quantity: 'minimum_quantity', verified: 'verified', sort: 'sort', page: 'page' };
           for (const [from, to] of Object.entries(keys)) if (url.searchParams.get(from)) query.set(to, url.searchParams.get(from));
-          const [result, categories] = await Promise.all([api(`/products/search?${query}`), api('/categories/')]);
-          // Old homepage category links use names rather than numeric IDs.
+          let categories, result;
           if (url.searchParams.get('category') && !url.searchParams.get('category_id')) {
+            categories = await publicCategories();
             const found = categories.data.find(c => c.category_name === url.searchParams.get('category'));
-            if (found) { query.set('category_id', found.category_id); props.query.category_id = String(found.category_id); Object.assign(result, await api(`/products/search?${query}`)); }
+            if (found) { query.set('category_id', found.category_id); props.query.category_id = String(found.category_id); }
+            result = await api(`/products/search?${query}`);
+          } else {
+            [result, categories] = await Promise.all([api(`/products/search?${query}`), publicCategories()]);
           }
           props.products = result.data; props.pagination = result.pagination; props.categories = categories.data;
           title = 'Farm fresh produce | AgriBridge Marketplace';

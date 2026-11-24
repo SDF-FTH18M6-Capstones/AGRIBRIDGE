@@ -600,44 +600,17 @@ def add_product_image(product_id):
 
         uploaded_file.stream.seek(0)
 
-        upload_folder = os.path.join(
-            current_app.instance_path, "uploads", "products"
-        )
-        os.makedirs(upload_folder, exist_ok=True)
-
-        stored_filename = f"{uuid4().hex}{extension}"
-        saved_file_path = os.path.join(upload_folder, stored_filename)
-        uploaded_file.save(saved_file_path)
-
-        image_url = url_for(
-            "products.serve_product_image",
-            filename=stored_filename,
-            _external=True
-        )
-
-    else:
-        data = request.get_json(silent=True)
-
-        if not isinstance(data, dict):
-            return jsonify({
-                "error": {
-                    "code": "INVALID_JSON",
-                    "message": "Request body must be a JSON object or an uploaded image file"
-                }
-            }), 400
-
+        from app.services import media
+        if not media.ready():
+            return jsonify(error={'code':'UPLOAD_NOT_CONFIGURED','message':'File uploads are currently unavailable.'}),503
+        uploaded_file.stream.seek(0)
         try:
-            validated_data = single_product_image_schema.load(data)
-        except ValidationError as error:
-            return jsonify({
-                "error": {
-                    "code": "VALIDATION_ERROR",
-                    "message": "Invalid image data",
-                    "fields": error.messages
-                }
-            }), 400
-
-        image_url = validated_data["image_url"]
+            asset=media.store(uploaded_file,'product_image',user_id,product_id=product_id)
+        except media.MediaError as error:
+            return jsonify(error={'code':'UPLOAD_ERROR','message':str(error)}),400
+        image_url=asset.public_url
+    else:
+        return jsonify(error={'code':'FILE_REQUIRED','message':'Choose a photograph from your device or camera. New image URLs are not accepted.'}),400
 
     new_image = ProductImage(
         product_id=product_id,
@@ -751,6 +724,10 @@ def delete_product_image(product_id, image_id):
         if os.path.isfile(candidate_path):
             local_file_path = candidate_path
 
+    from app.models import MediaAsset
+    from app.services.commerce import now
+    asset=MediaAsset.query.filter_by(product_id=product_id,public_url=image.image_url).first()
+    if asset: asset.deleted_at=now()
     db.session.delete(image)
     db.session.commit()
 

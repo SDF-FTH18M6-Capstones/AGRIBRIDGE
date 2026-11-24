@@ -58,3 +58,31 @@ def test_upgrade_preserves_legacy_order_and_snapshots(tmp_path):
         legacy_payment = db.session.get(Order, 2).payments[0]
         assert legacy_payment.payment_method == 'mpesa'
         assert legacy_payment.authorization_url is None
+
+
+def test_database_media_migration_preserves_legacy_assets_and_guards_file_bytes(tmp_path):
+    from sqlalchemy import text
+    from app.models import MediaAsset, MediaContent
+    app=create_app({'TESTING':True,'SQLALCHEMY_DATABASE_URI':f'sqlite:///{tmp_path / "media.sqlite"}',
+                    'SECRET_KEY':'test-secret','JWT_SECRET_KEY':'a'*32})
+    runner=app.test_cli_runner()
+    result=runner.invoke(args=['db','upgrade','d45a7b1ec004'])
+    assert result.exit_code==0,result.output
+    with app.app_context():
+        db.session.execute(text("INSERT INTO users (user_id,full_name,email,password_hash) VALUES (1,'Farmer','migration-media@example.com','test')"))
+        db.session.execute(text("INSERT INTO media_assets (asset_id,owner_id,purpose,public_id,resource_type,delivery_type,file_format,original_name,file_size,scan_status,page_order) VALUES ('legacy',1,'farm_photo','cloud/legacy','image','authenticated','jpg','farm.jpg',10,'not_scanned',0)"))
+        db.session.commit()
+    result=runner.invoke(args=['db','upgrade'])
+    assert result.exit_code==0,result.output
+    with app.app_context():
+        asset=db.session.get(MediaAsset,'legacy')
+        assert asset.storage_backend=='cloudinary' and asset.public_id=='cloud/legacy'
+        asset.storage_backend='database'
+        db.session.add(MediaContent(asset_id='legacy',data=b'preserve these bytes'));db.session.commit()
+    result=runner.invoke(args=['db','downgrade','d45a7b1ec004'])
+    assert result.exit_code!=0 and 'Export database file contents' in result.output
+    with app.app_context():
+        assert db.session.get(MediaContent,'legacy').data==b'preserve these bytes'
+        MediaContent.query.delete();db.session.commit()
+    result=runner.invoke(args=['db','downgrade','d45a7b1ec004'])
+    assert result.exit_code==0,result.output

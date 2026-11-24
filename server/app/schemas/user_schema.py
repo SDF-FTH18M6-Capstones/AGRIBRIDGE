@@ -1,4 +1,4 @@
-from marshmallow import Schema, fields, validate, validates, ValidationError
+from marshmallow import Schema, fields, validate, validates, validates_schema, ValidationError
 
 
 class UserSchema(Schema):
@@ -16,6 +16,13 @@ class UserSchema(Schema):
         load_only=True,
         validate=validate.Length(min=8),
     )
+
+    confirm_password = fields.Str(load_only=True)
+
+    @validates_schema
+    def passwords_match(self, data, **kwargs):
+        if data.get("confirm_password") is not None and data["confirm_password"] != data.get("password"):
+            raise ValidationError({"confirm_password":["Passwords do not match."]})
 
     phone_number = fields.Str(
         allow_none=True,
@@ -37,8 +44,10 @@ class UserSchema(Schema):
 
     @validates("password")
     def validate_password_bytes(self, value, **kwargs):
-        if len(value.encode("utf-8")) > 72:
-            raise ValidationError("Password must not exceed 72 UTF-8 bytes.")
+        from app.services.passwords import password_errors
+        errors = password_errors(value)
+        if errors:
+            raise ValidationError(errors)
 
     @validates("full_name")
     def validate_name(self, value, **kwargs):

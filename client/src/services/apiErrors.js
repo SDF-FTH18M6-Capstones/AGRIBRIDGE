@@ -6,7 +6,10 @@ export const handleApiError = (error) => {
 
     const responseError = responseData?.error;
 
+    const details = responseError?.fields || responseError?.details;
+    const validation = details && typeof details === "object" ? Object.values(details).flat().filter(value => typeof value === "string").join(" ") : "";
     const message =
+      validation ||
       responseError?.message ||
       responseData?.message ||
       (typeof responseError === "string" ? responseError : null) ||

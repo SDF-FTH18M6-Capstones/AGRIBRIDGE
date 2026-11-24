@@ -25,7 +25,7 @@ function AdminHeader() {
           Admin Portal
         </p>
 
-        <h2 className="text-xl font-bold text-[#174832]">
+        <h2 className="text-xl font-bold text-green-950">
           Welcome to AgriBridge
         </h2>
       </div>
@@ -35,7 +35,7 @@ function AdminHeader() {
         {/* Notifications */}
         <Link
           to="/admin/notifications"
-          className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-green-50 hover:text-[#159447]"
+          className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-green-50 hover:text-green-700"
         >
           <FontAwesomeIcon icon={faBell} className="h-4 w-4" />
           Notifications
@@ -44,7 +44,7 @@ function AdminHeader() {
         {/* Profile */}
         <Link
           to="/account"
-          className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-green-50 hover:text-[#159447]"
+          className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-green-50 hover:text-green-700"
         >
           <FontAwesomeIcon icon={faUser} className="h-4 w-4" />
           Profile

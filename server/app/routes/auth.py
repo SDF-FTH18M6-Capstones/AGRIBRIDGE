@@ -135,11 +135,11 @@ def register():
         )
 
     from app.routes.profiles import get_user_data
+    from app.services.sessions import new_session
     user_data = get_user_data(user)
     return success_response("Registration successful.", {
         **user_data, "user": user_data,
-        "access_token": create_access_token(identity=str(user.user_id)),
-        "token_type": "Bearer",
+        **new_session(user),
     }, 201)
 
 
@@ -177,15 +177,13 @@ def login():
 
     from app.routes.profiles import get_user_data
 
-    access_token = create_access_token(
-        identity=str(user.user_id)
-    )
+    from app.services.sessions import new_session
+    session_credentials = new_session(user)
 
     return success_response(
         "Login successful.",
         {
-            "access_token": access_token,
-            "token_type": "Bearer",
+            **session_credentials,
             "user": get_user_data(user),
         },
     )
@@ -204,6 +202,11 @@ def logout():
         db.session.add(RevokedToken(jti=jti))
         db.session.commit()
 
+    from app.services.sessions import current_session
+    session = current_session()
+    if session:
+        session.revoked_at = datetime.now(timezone.utc)
+        db.session.commit()
     return success_response("Successfully logged out.")
 
 
@@ -296,15 +299,10 @@ def reset_password():
             400,
         )
 
-    if (
-        len(new_password) < 8
-        or len(new_password.encode("utf-8")) > 72
-    ):
-        return error_response(
-            "VALIDATION_ERROR",
-            "Password must contain at least 8 characters and must not exceed 72 UTF-8 bytes.",
-            400,
-        )
+    from app.services.passwords import password_errors
+    errors = password_errors(new_password)
+    if errors:
+        return error_response('VALIDATION_ERROR', ' '.join(errors), 400)
 
     if (
         confirm_password is not None
@@ -362,6 +360,8 @@ def reset_password():
         return error_response("INVALID_RESET_TOKEN", "The reset token has already been used.", 400)
     user.set_password(new_password)
     user.auth_version += 1
+    from app.models import AuthSession
+    db.session.execute(update(AuthSession).where(AuthSession.user_id == user.user_id).values(revoked_at=datetime.now(timezone.utc)))
     db.session.execute(update(PasswordResetToken).where(
         PasswordResetToken.user_id == user.user_id,
         PasswordResetToken.used_at.is_(None),

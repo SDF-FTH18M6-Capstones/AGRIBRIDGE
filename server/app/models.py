@@ -7,7 +7,7 @@ from sqlalchemy.orm import validates
 from app.extensions import db, bcrypt
 
 
-MIN_PASSWORD_LENGTH = 8
+MIN_PASSWORD_LENGTH = 12
 MAX_PASSWORD_BYTES = 72
 
 ADMIN_STATUSES = ("active", "suspended")
@@ -114,16 +114,8 @@ class User(TimestampMixin, db.Model):
         return value or None
 
     def set_password(self, password):
-        if not isinstance(password, str):
-            raise ValueError("Password must be a string.")
-        if len(password) < MIN_PASSWORD_LENGTH:
-            raise ValueError(
-                f"Password must be at least {MIN_PASSWORD_LENGTH} characters long."
-            )
-        if len(password.encode("utf-8")) > MAX_PASSWORD_BYTES:
-            raise ValueError(
-                f"Password must not exceed {MAX_PASSWORD_BYTES} bytes."
-            )
+        from app.services.passwords import validate_password
+        validate_password(password)
 
         self.password_hash = bcrypt.generate_password_hash(
             password
@@ -191,6 +183,15 @@ class FarmerProfile(db.Model):
     )
     farm_name = db.Column(db.Text, nullable=False)
     location = db.Column(db.Text, nullable=False)
+    county_code = db.Column(db.Text)
+    subcounty_code = db.Column(db.Text)
+    ward_code = db.Column(db.Text)
+    town = db.Column(db.Text)
+    directions = db.Column(db.Text)
+    landmark = db.Column(db.Text)
+    latitude = db.Column(db.Float)
+    longitude = db.Column(db.Float)
+    land_tenure = db.Column(db.Text)
     description = db.Column(db.Text)
     verification_status = db.Column(
         db.Text,
@@ -226,6 +227,10 @@ class BuyerProfile(db.Model):
     buyer_type = db.Column(db.Text, nullable=False)
     location = db.Column(db.Text, nullable=False)
 
+    county_code = db.Column(db.Text)
+    subcounty_code = db.Column(db.Text)
+    town = db.Column(db.Text)
+
     user = db.relationship("User", back_populates="buyer_profile")
     requests = db.relationship("BuyerRequest", back_populates="buyer")
     orders = db.relationship("Order", back_populates="buyer")
@@ -246,6 +251,7 @@ class FieldOfficer(db.Model):
         nullable=False,
         unique=True,
     )
+    coverage = db.Column(db.JSON)
     staff_number = db.Column(
         db.Text,
         nullable=False,
@@ -301,6 +307,9 @@ class FarmerVerification(db.Model):
         nullable=False,
         default="pending",
     )
+    location_snapshot = db.Column(db.JSON)
+    location_matches = db.Column(db.Boolean)
+    officer_remarks = db.Column(db.Text)
     farm_location = db.Column(db.Text)
     visit_date = db.Column(db.DateTime)
     remarks = db.Column(db.Text)
@@ -847,3 +856,53 @@ class OrderIssue(db.Model):
         CheckConstraint("status IN ('open', 'resolved', 'rejected')", name="check_order_issue_status"),
         CheckConstraint("issue_type IN ('cancellation', 'refund', 'payment')", name="check_order_issue_type"),
     )
+
+
+class AuthSession(db.Model):
+    __tablename__ = 'auth_sessions'
+    session_id = db.Column(db.String(64), primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.user_id'), nullable=False, index=True)
+    tab_id = db.Column(db.String(100), nullable=False)
+    refresh_hash = db.Column(db.String(64), unique=True, nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False)
+    last_activity_at = db.Column(db.DateTime(timezone=True), nullable=False)
+    expires_at = db.Column(db.DateTime(timezone=True), nullable=False)
+    verified_at = db.Column(db.DateTime(timezone=True), nullable=False)
+    revoked_at = db.Column(db.DateTime(timezone=True))
+    browser = db.Column(db.String(200))
+    user = db.relationship('User')
+
+
+class UsedRefresh(db.Model):
+    __tablename__ = 'used_refresh_tokens'
+    token_hash = db.Column(db.String(64), primary_key=True)
+    session_id = db.Column(db.String(64), db.ForeignKey('auth_sessions.session_id'), nullable=False)
+
+
+class MediaAsset(TimestampMixin, db.Model):
+    __tablename__ = 'media_assets'
+    asset_id = db.Column(db.String(64), primary_key=True)
+    owner_id = db.Column(db.Integer, db.ForeignKey('users.user_id'), nullable=False, index=True)
+    verification_id = db.Column(db.Integer, db.ForeignKey('farmer_verifications.verification_id'), index=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.product_id'), index=True)
+    purpose = db.Column(db.Text, nullable=False)
+    public_id = db.Column(db.Text, unique=True, nullable=False)
+    cloudinary_asset_id = db.Column(db.Text)
+    storage_backend = db.Column(db.Text, nullable=False, default='cloudinary', server_default='cloudinary')
+    resource_type = db.Column(db.Text, nullable=False)
+    delivery_type = db.Column(db.Text, nullable=False)
+    file_format = db.Column(db.Text, nullable=False)
+    file_size = db.Column(db.Integer, nullable=False)
+    original_name = db.Column(db.Text, nullable=False)
+    scan_status = db.Column(db.Text, nullable=False, default='pending')
+    public_url = db.Column(db.Text)
+    page_order = db.Column(db.Integer, nullable=False, default=0)
+    deleted_at = db.Column(db.DateTime(timezone=True))
+    verification = db.relationship('FarmerVerification')
+
+
+class MediaContent(db.Model):
+    """Binary payloads stay separate from frequently listed media metadata."""
+    __tablename__ = 'media_contents'
+    asset_id = db.Column(db.String(64), db.ForeignKey('media_assets.asset_id'), primary_key=True)
+    data = db.Column(db.LargeBinary, nullable=False)

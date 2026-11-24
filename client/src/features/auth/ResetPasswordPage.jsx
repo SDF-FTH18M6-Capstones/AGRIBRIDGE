@@ -1,10 +1,12 @@
+import PasswordChecklist from '../security/PasswordChecklist';
+import { strongPassword } from '../security/passwordPolicy';
 
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import api from "../../services/api.js";
 
 const inputClass =
-  "w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-green-700 focus:ring-2 focus:ring-green-100";
+  "w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-green-700 focus:ring-2 focus:ring-green-100";
 
 export default function ResetPasswordPage() {
   const [searchParams] = useSearchParams();
@@ -27,8 +29,8 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    if (password.length < 8) {
-      setError("Your password must contain at least 8 characters.");
+    if (!strongPassword(password)) {
+      setError("Meet all the password requirements below.");
       return;
     }
 
@@ -65,12 +67,10 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <main className="flex min-h-[75vh] items-center justify-center bg-[#f7faf6] px-4 py-12">
+    <main className="flex min-h-[75vh] items-center justify-center bg-white px-4 py-12">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <Link to="/" className="text-3xl font-extrabold tracking-tight text-green-800">
-            AgriBridge
-          </Link>
+          <Link to="/" className="text-3xl font-extrabold tracking-tight text-green-800"><img src="/assets/brand/logo.webp" alt="AgriBridge" width="132" height="88" className="inline-block h-20 w-32 object-contain" /></Link>
 
           <h1 className="mt-6 text-3xl font-bold text-green-950">
             Reset your password
@@ -106,9 +106,9 @@ export default function ResetPasswordPage() {
                   id="new-password"
                   type={showPassword ? "text" : "password"}
                   autoComplete="new-password"
-                  minLength={8}
+                  minLength={12}
                   required
-                  placeholder="At least 8 characters"
+                  placeholder="At least 12 mixed characters"
                   className={inputClass}
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
@@ -124,7 +124,7 @@ export default function ResetPasswordPage() {
                   id="confirm-password"
                   type={showPassword ? "text" : "password"}
                   autoComplete="new-password"
-                  minLength={8}
+                  minLength={12}
                   required
                   placeholder="Enter your new password again"
                   className={inputClass}
@@ -155,6 +155,7 @@ export default function ResetPasswordPage() {
                 </p>
               )}
 
+              <PasswordChecklist value={password} />
               {message ? (
                 <Link
                   to="/login"

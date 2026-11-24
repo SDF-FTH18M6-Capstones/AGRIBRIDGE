@@ -45,7 +45,7 @@ def admin_resources(resource):
                  'location': p.location, 'buyer_type': p.buyer_type} for p in BuyerProfile.query.all()]
     elif resource == 'field-officers':
         rows = [{'field_officer_id': p.field_officer_id, 'full_name': p.user.full_name,
-                 'email': p.user.email, 'staff_number': p.staff_number, 'status': p.status}
+                 'email': p.user.email, 'staff_number': p.staff_number, 'status': p.status, 'coverage': p.coverage or []}
                 for p in FieldOfficer.query.all()]
     else:
         return jsonify(error={'message': 'Resource not found'}), 404
@@ -150,3 +150,22 @@ def create_officer():
     except IntegrityError:
         db.session.rollback()
         return jsonify(error={'message': 'Email or staff number already exists'}), 409
+
+
+@portal_bp.patch('/admin/field-officers/<int:officer_id>/coverage')
+@jwt_required()
+def officer_coverage(officer_id):
+    if not is_admin(current_user()): return denied()
+    from app.services.locations import COUNTIES, SUBCOUNTIES
+    payload=request.get_json(silent=True) or {}
+    rows=payload.get('coverage') if isinstance(payload,dict) else None
+    if not isinstance(rows,list) or len(rows)>50: return jsonify(error={'message':'Provide at most 50 coverage areas.'}),400
+    for row in rows:
+        if not isinstance(row,dict) or row.get('county_code') not in COUNTIES: return jsonify(error={'message':'Select a valid coverage county.'}),400
+        sub=row.get('subcounty_code')
+        if sub and (sub not in SUBCOUNTIES or SUBCOUNTIES[sub]['county_code']!=row['county_code']): return jsonify(error={'message':'Coverage subcounty does not belong to this county.'}),400
+    officer=db.session.get(FieldOfficer,officer_id)
+    if not officer: return jsonify(error={'message':'Officer not found.'}),404
+    officer.coverage=[{k:r[k] for k in ['county_code','subcounty_code'] if r.get(k)} for r in rows]
+    db.session.commit()
+    return jsonify(message='Coverage updated.',data=officer.coverage)

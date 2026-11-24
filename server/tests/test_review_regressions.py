@@ -81,11 +81,11 @@ def test_password_reset_revokes_sessions_and_all_reset_tokens(setup):
     for token in ['first', 'second']:
         db.session.add(PasswordResetToken(user_id=user.user_id, token_hash=hashlib.sha256(token.encode()).hexdigest(), expires_at=datetime.now(timezone.utc)+timedelta(minutes=10)))
     db.session.commit()
-    response = client.post('/api/reset-password', json={'token': 'first', 'new_password': 'Changed123!'})
+    response = client.post('/api/reset-password', json={'token': 'first', 'new_password': 'ChangedHarvest123!'})
     assert response.status_code == 200
     assert client.get('/api/profiles/me', headers=headers['buyer']).status_code == 401
     assert client.post('/api/reset-password', json={'token': 'second', 'new_password': 'ChangedAgain123!'}).status_code == 400
-    response = client.post('/api/login', json={'email': user.email, 'password': 'Changed123!'})
+    response = client.post('/api/login', json={'email': user.email, 'password': 'ChangedHarvest123!'})
     assert response.status_code == 200
 
 
