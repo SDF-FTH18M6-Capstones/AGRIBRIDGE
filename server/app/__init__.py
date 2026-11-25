@@ -83,6 +83,8 @@ def create_app(test_config=None):
     app.register_blueprint(media_bp, url_prefix='/api')
     register_worker(app)
     register_seed_command(app)
+    from app.commands import register_operator_commands
+    register_operator_commands(app)
 
     @app.errorhandler(413)
     def oversized_upload(error):

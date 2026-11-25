@@ -35,6 +35,11 @@ async function publicCategories() {
 
 async function handle(req, res) {
   const url = new URL(req.url, 'http://localhost');
+  if (url.pathname === '/healthz' && ['GET', 'HEAD'].includes(req.method)) {
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(req.method === 'HEAD' ? undefined : JSON.stringify({ status: 'ok', service: 'agribridge-web' }));
+    return;
+  }
   if (url.pathname.startsWith('/api/')) {
     const target = new URL(`${backend}${url.pathname.slice(4)}${url.search}`);
     const client = target.protocol === 'https:' ? https : http;
@@ -116,3 +121,9 @@ if (!production) {
   vite = await createServer({ root, server: { middlewareMode: true, hmr: { server } }, appType: 'custom' });
 }
 server.listen(port, host, () => console.log(`AgriBridge: http://${host}:${port}`));
+
+// Let Railway drain ongoing requests before the container exits.
+for (const signal of ['SIGTERM', 'SIGINT']) process.on(signal, () => {
+  server.close(() => process.exit(0));
+  setTimeout(() => process.exit(1), 10000).unref();
+});

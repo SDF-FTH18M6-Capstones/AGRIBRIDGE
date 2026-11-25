@@ -79,3 +79,12 @@ npm run build
 ```
 
 Further details: [API and worker](server/README.md), [SSR frontend](client/README.md).
+
+## Railway deployment
+
+See [the Railway + Neon deployment guide](docs/RAILWAY_DEPLOYMENT.md) for the frontend,
+API and worker service configuration, variables, migrations and acceptance checks.
+Deployment files use separate `/client` and `/server` Docker build contexts and keep
+product SSR. Preparing these files has not deployed services or changed your shared
+database. When you deploy the API, its configured pre-deploy step migrates the
+database selected by that service's `DATABASE_URL`.

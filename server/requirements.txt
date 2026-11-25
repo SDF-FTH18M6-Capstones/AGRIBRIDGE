@@ -28,3 +28,5 @@ Pillow==13.0.0
 
 cloudinary==1.47.0
 pypdf==6.21.4
+
+gunicorn==27.0.1
